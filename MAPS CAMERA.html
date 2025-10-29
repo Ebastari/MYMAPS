@@ -221,8 +221,24 @@ const drawControl=new L.Control.Draw({
 map.addControl(drawControl);
 map.on(L.Draw.Event.CREATED,e=>drawnItems.addLayer(e.layer));
 
-// ========================== FUNGSI AMBIL GAMBAR (DIHAPUS) ===========
-// Tidak perlu Google Apps Script lagi
+// ===== ✅ FUNGSI BARU UNTUK KONVERSI LINK GOOGLE DRIVE =====
+function getDirectGoogleDriveImage(url) {
+  if (!url || typeof url !== 'string') return '';
+  try {
+    // Cari 'id=' pada URL
+    const idMatch = url.match(/id=([a-zA-Z0-9_-]+)/);
+    if (idMatch && idMatch[1]) {
+      const fileId = idMatch[1];
+      // Ini adalah format link langsung yang benar untuk <img>
+      return `https://drive.google.com/uc?id=${fileId}`;
+    }
+    // Jika formatnya beda (mungkin sudah direct link), kembalikan URL aslinya
+    return url;
+  } catch (e) {
+    console.warn("Gagal konversi link GDrive:", e);
+    return url; // Failsafe
+  }
+}
 
 // ========================== LOAD SPREADSHEET DATA ===================
 async function loadSpreadsheet(){
@@ -247,10 +263,10 @@ async function loadSpreadsheet(){
       radius:4,color:"#22c55e",fillColor:"#22c55e",fillOpacity:0.9,weight:0.5
     }).addTo(map);
 
-    // ===== PERUBAHAN DI SINI =====
+    // ===== ✅ PERUBAHAN DI SINI =====
     marker.on("click", ()=>{
-      // Langsung ambil URL dari kolom "LINK"
-      const img = row.LINK; 
+      // Konversi URL Google Drive agar tidak pecah
+      const img = getDirectGoogleDriveImage(row.LINK); 
       
       const html = `
         <b>${row.Lokasi||"-"}</b><br>
