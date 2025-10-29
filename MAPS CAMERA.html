@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Peta Monitoring Profesional - Spreadsheet + KMZ + Statistik</title>
+<title>Peta Monitoring Profesional - Dashboard Sidebar</title>
 
 <!-- Leaflet -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"/>
@@ -16,70 +16,146 @@
 <!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
-<!-- JSZip -->
+<!-- JSZip (KMZ) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
 <!-- Papaparse -->
 <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
 
 <style>
-  html,body {height:100%;margin:0;font-family:"Inter",system-ui,sans-serif;background:#111;color:#fff;}
-  #map {width:100%;height:100vh;}
-  /* Sidebar */
-  #sidebar {
-    position:absolute;top:0;left:0;height:100%;width:320px;
-    background:rgba(0,0,0,0.8);
-    backdrop-filter:blur(6px);
-    padding:16px;
-    overflow-y:auto;
-    box-shadow:2px 0 8px rgba(0,0,0,0.4);
-    z-index:1000;
-  }
-  #map-container {margin-left:320px;}
-  h2 {margin:0 0 8px 0;font-size:18px;border-bottom:1px solid #333;padding-bottom:4px;}
-  button {
-    background:#22c55e;border:none;color:#fff;border-radius:6px;
-    padding:6px 10px;cursor:pointer;margin-top:8px;width:100%;
-  }
-  button:hover {background:#16a34a;}
-  input[type=file]{display:none;}
-  .layerItem {display:flex;align-items:center;gap:6px;margin:4px 0;}
-  canvas {margin-top:8px;}
+html,body {
+  margin:0;
+  height:100%;
+  background:#111;
+  font-family:"Inter",system-ui,sans-serif;
+}
+#map {width:100%;height:100vh;}
+
+/* Sidebar mini */
+#sidebar {
+  position:absolute;
+  top:0; left:0;
+  width:60px; height:100%;
+  background:#000;
+  display:flex; flex-direction:column;
+  align-items:center;
+  padding:10px 0;
+  gap:10px;
+  z-index:1000;
+  box-shadow:2px 0 8px rgba(0,0,0,0.4);
+}
+.menu-btn {
+  width:44px; height:44px;
+  display:flex; align-items:center; justify-content:center;
+  border-radius:8px;
+  background:#1e1e1e;
+  color:#22c55e;
+  font-size:20px;
+  cursor:pointer;
+  transition:all 0.25s;
+}
+.menu-btn:hover { background:#22c55e; color:#fff; }
+
+/* Panel konten kecil */
+.panel {
+  position:absolute;
+  top:10px; left:70px;
+  width:300px; max-height:90%;
+  overflow-y:auto;
+  background:rgba(0,0,0,0.9);
+  color:#fff;
+  padding:16px;
+  border-radius:10px;
+  backdrop-filter:blur(8px);
+  box-shadow:0 0 10px rgba(0,0,0,0.5);
+  transition:opacity 0.3s, transform 0.3s;
+  opacity:0;
+  pointer-events:none;
+  transform:translateX(-20px);
+  z-index:999;
+}
+.panel.show {
+  opacity:1;
+  pointer-events:auto;
+  transform:translateX(0);
+}
+h2 {
+  margin:0 0 8px 0;
+  font-size:17px;
+  border-bottom:1px solid #333;
+  padding-bottom:4px;
+}
+button {
+  background:#22c55e;
+  border:none; color:#fff;
+  border-radius:6px;
+  padding:6px 10px;
+  cursor:pointer; margin-top:8px;
+  width:100%;
+}
+button:hover {background:#16a34a;}
+input[type=file]{display:none;}
+.layerItem {display:flex;align-items:center;gap:6px;margin:4px 0;}
+canvas {margin-top:8px;}
+.leaflet-popup-content img{width:200px;border-radius:8px;margin-top:8px;}
 </style>
 </head>
 
 <body>
+<!-- Sidebar mini -->
 <div id="sidebar">
+  <div class="menu-btn" title="Statistik" onclick="togglePanel('stats')">📊</div>
+  <div class="menu-btn" title="Layer KMZ" onclick="togglePanel('layers')">📂</div>
+  <div class="menu-btn" title="Gambar Polygon" onclick="togglePanel('draw')">✏️</div>
+</div>
+
+<!-- Panel Statistik -->
+<div id="panel-stats" class="panel">
   <h2>📊 Statistik Monitoring</h2>
   <div id="info">Memuat data...</div>
-  <canvas id="chart" width="280" height="280"></canvas>
-  <hr style="border:0;border-top:1px solid #333;margin:10px 0;">
+  <canvas id="chart" width="260" height="260"></canvas>
+</div>
+
+<!-- Panel Layer -->
+<div id="panel-layers" class="panel">
   <h2>📂 Layer KMZ</h2>
   <button onclick="document.getElementById('kmzInput').click()">Upload KMZ</button>
   <input type="file" id="kmzInput" accept=".kmz,.kml" multiple>
   <div id="layerList"></div>
   <button onclick="clearLayers()">🗑️ Hapus Semua Layer</button>
-  <hr style="border:0;border-top:1px solid #333;margin:10px 0;">
-  <h2>✏️ Gambar Polygon</h2>
-  <p style="font-size:12px;color:#aaa;">Gunakan tombol di peta (kiri atas) untuk menggambar polygon, polyline, atau titik.</p>
 </div>
 
-<div id="map-container">
-  <div id="map"></div>
+<!-- Panel Gambar Polygon -->
+<div id="panel-draw" class="panel">
+  <h2>✏️ Gambar Polygon</h2>
+  <p style="font-size:13px;color:#aaa;">Gunakan alat di kanan atas peta untuk menggambar polygon, garis, atau marker.</p>
 </div>
+
+<div id="map"></div>
 
 <script>
-// ======================= KONFIGURASI ===========================
+// ========================== KONFIGURASI =============================
 const SHEET_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTifVQt8HlXS1HiDgLSiC3vWgFrWO7ygGKG8_YCOQpVTRlBI_txOkcASymbFi7NUuF3poSx3i3b9vo0/pub?output=csv";
-// ===============================================================
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxYourScriptID/exec"; // Ganti dengan URL WebApp kamu
+// ====================================================================
 
-// Inisialisasi Peta
+// ========================== INISIALISASI PETA =======================
 const map = L.map('map', { preferCanvas:true }).setView([-2.98,115.197],6);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
   maxZoom:19, attribution:'© OpenStreetMap'
 }).addTo(map);
 
-// ====================== Layer Manager ==========================
+// ========================== PANEL TOGGLE ============================
+function togglePanel(id){
+  const panels=['stats','layers','draw'];
+  panels.forEach(p=>{
+    const el=document.getElementById('panel-'+p);
+    if(p===id) el.classList.toggle('show');
+    else el.classList.remove('show');
+  });
+}
+
+// ========================== LAYER MANAGER ===========================
 const kmzLayers = {};
 function refreshLayerList() {
   const div = document.getElementById("layerList");
@@ -98,7 +174,7 @@ function refreshLayerList() {
   });
 }
 
-// ====================== KMZ Loader =============================
+// ========================== KMZ LOADER ==============================
 async function loadKMZ(file){
   const name=file.name.replace(/\.[^/.]+$/,"");
   const arrayBuffer=await file.arrayBuffer();
@@ -141,10 +217,11 @@ function clearLayers(){
   refreshLayerList();
 }
 
-// ======================= Polygon Drawing =======================
+// ========================== POLYGON DRAW ============================
 const drawnItems=new L.FeatureGroup();
 map.addLayer(drawnItems);
 const drawControl=new L.Control.Draw({
+  position:'topright', // ✅ Geser toolbar ke kanan atas
   edit:{featureGroup:drawnItems},
   draw:{
     polygon:{allowIntersection:false,showArea:true},
@@ -154,36 +231,56 @@ const drawControl=new L.Control.Draw({
 map.addControl(drawControl);
 map.on(L.Draw.Event.CREATED,e=>drawnItems.addLayer(e.layer));
 
-// ======================= Load Spreadsheet Data =================
-async function loadSpreadsheet(){
-  const res=await fetch(SHEET_CSV);
-  const csv=await res.text();
-  const data=Papa.parse(csv,{header:true}).data;
+// ========================== FUNGSI AMBIL GAMBAR DARI PATH ============
+async function getImageFromPath(path){
+  if(!path) return '';
+  try {
+    const res = await fetch(`${APPS_SCRIPT_URL}?mode=getImage&path=${encodeURIComponent(path)}`);
+    const json = await res.json();
+    return json.url || '';
+  } catch (err) {
+    console.warn("Gagal ambil gambar:", err);
+    return '';
+  }
+}
 
-  let total=0;
-  const typeCount={};
-  const coords=[];
-  data.forEach(row=>{
-    const lat=parseFloat(row.Y),lon=parseFloat(row.X);
-    if(isNaN(lat)||isNaN(lon))return;
+// ========================== LOAD SPREADSHEET DATA ===================
+async function loadSpreadsheet(){
+  document.getElementById("info").textContent = "📡 Memuat data dari spreadsheet...";
+  const res = await fetch(SHEET_CSV);
+  const csv = await res.text();
+  const data = Papa.parse(csv,{header:true}).data;
+
+  let total = 0;
+  const typeCount = {};
+  const coords = [];
+
+  for(const row of data){
+    const lat = parseFloat(row.Y), lon = parseFloat(row.X);
+    if(isNaN(lat)||isNaN(lon)) continue;
     total++;
     coords.push([lat,lon]);
-    const t=(row.Tanaman||"Tidak Dikenal").trim();
-    typeCount[t]=(typeCount[t]||0)+1;
+    const tanaman = (row.Tanaman||"Tidak Dikenal").trim();
+    typeCount[tanaman] = (typeCount[tanaman]||0)+1;
 
-    const marker=L.circleMarker([lat,lon],{
+    const marker = L.circleMarker([lat,lon],{
       radius:4,color:"#22c55e",fillColor:"#22c55e",fillOpacity:0.9,weight:0.5
     }).addTo(map);
-    const html=`
-      <b>${row.Lokasi||"-"}</b><br>
-      🌱 ${row.Tanaman||"-"}<br>
-      📏 ${row.Tinggi||"-"} cm<br>
-      📅 ${row.Tanggal||"-"}<br>
-      👷 ${row.Pengawas||"-"}<br>
-      🏢 ${row.Vendor||"-"}
-    `;
-    marker.bindPopup(html);
-  });
+
+    marker.on("click", async ()=>{
+      const img = await getImageFromPath(row.Gambar);
+      const html = `
+        <b>${row.Lokasi||"-"}</b><br>
+        🌱 ${row.Tanaman||"-"}<br>
+        📏 ${row.Tinggi||"-"} cm<br>
+        📅 ${row.Tanggal||"-"}<br>
+        👷 ${row.Pengawas||"-"}<br>
+        🏢 ${row.Vendor||"-"}<br>
+        ${img ? `<img src="${img}" loading="lazy">` : ""}
+      `;
+      marker.bindPopup(html).openPopup();
+    });
+  }
 
   if(coords.length) map.fitBounds(coords);
   document.getElementById("info").innerHTML=`
@@ -193,7 +290,7 @@ async function loadSpreadsheet(){
   renderChart(typeCount);
 }
 
-// ======================= Chart =======================
+// ========================== CHART ===========================
 let chart;
 function renderChart(obj){
   const ctx=document.getElementById("chart");
@@ -204,10 +301,11 @@ function renderChart(obj){
   chart=new Chart(ctx,{
     type:'pie',
     data:{labels,datasets:[{data:values,backgroundColor:colors}]},
-    options:{plugins:{legend:{labels:{color:'#fff'}}}}
+    options:{plugins:{legend:{labels:{color:'#fff',font:{size:12}}}}}
   });
 }
 
+// ========================== MULAI ===========================
 loadSpreadsheet();
 </script>
 </body>
