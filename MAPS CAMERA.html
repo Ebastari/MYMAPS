@@ -1,366 +1,304 @@
 <!doctype html>
 <html lang="id">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Peta Monitoring Profesional</title>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Peta Monitoring Profesional - Dashboard Sidebar</title>
 
-  <!-- Leaflet core -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
-  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 
-  <!-- Leaflet Draw -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
-  <script src="https://cdn.jsdelivr.net/npm/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet-draw@1.0.4/dist/leaflet.draw.css"/>
+<script src="https://cdn.jsdelivr.net/npm/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
 
-  <!-- MarkerCluster (opsional saat >1000 titik) -->
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
-  <script src="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
-  <!-- Chart.js v4 -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
-  <!-- JSZip untuk KMZ -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
 
-  <!-- PapaParse untuk CSV -->
-  <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
+<style>
+html,body {
+  margin:0;
+  height:100%;
+  background:#111;
+  font-family:"Inter",system-ui,sans-serif;
+}
+#map {width:100%;height:100vh;}
 
-  <style>
-    :root{
-      --bg:#111;          /* dark */
-      --panel:#0a0a0a;    /* panel */
-      --muted:#222;       /* muted border */
-      --text:#e5e7eb;     /* text */
-      --accent:#22c55e;   /* green */
-    }
-    html, body { height:100%; margin:0; background:var(--bg); color:var(--text); font-family: "Inter", system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji"; }
-    #map { width:100%; height:100vh; }
+/* Sidebar mini */
+#sidebar {
+  position:absolute;
+  top:0; left:0;
+  width:60px; height:100%;
+  background:#000;
+  display:flex; flex-direction:column;
+  align-items:center;
+  padding:10px 0;
+  gap:10px;
+  z-index:1000;
+  box-shadow:2px 0 8px rgba(0,0,0,0.4);
+}
+.menu-btn {
+  width:44px; height:44px;
+  display:flex; align-items:center; justify-content:center;
+  border-radius:8px;
+  background:#1e1e1e;
+  color:#22c55e;
+  font-size:20px;
+  cursor:pointer;
+  transition:all 0.25s;
+}
+.menu-btn:hover { background:#22c55e; color:#fff; }
 
-    /* Sidebar icon rail */
-    #sidebar { position:absolute; inset:0 auto 0 0; width:64px; display:flex; flex-direction:column; gap:12px; padding:12px 10px; background:#000; z-index:1000; box-shadow: 2px 0 10px rgba(0,0,0,.5); }
-    .menu-btn { width:44px; height:44px; border-radius:10px; display:grid; place-items:center; background:#171717; color:var(--accent); cursor:pointer; transition:.2s; user-select:none; font-size:20px; }
-    .menu-btn:hover { background:var(--accent); color:#fff; transform: translateY(-1px); }
-
-    /* Panels */
-    .panel { position:absolute; top:12px; left:76px; width:320px; max-height:88vh; overflow:auto; background:rgba(0,0,0,.9); border:1px solid var(--muted); border-radius:14px; padding:16px; box-shadow:0 10px 30px rgba(0,0,0,.4); backdrop-filter: blur(8px); opacity:0; pointer-events:none; transform: translateX(-12px); transition: opacity .25s, transform .25s; z-index:999; }
-    .panel.show { opacity:1; pointer-events:auto; transform: translateX(0); }
-    .panel h2 { margin:0 0 10px 0; font-size:16px; font-weight:700; border-bottom:1px solid var(--muted); padding-bottom:6px; }
-    .panel small { color:#9ca3af; }
-    .panel-section { margin-top:10px; }
-
-    /* Inputs & buttons */
-    .btn { width:100%; border:0; background:var(--accent); color:#fff; border-radius:10px; padding:10px 12px; font-weight:600; cursor:pointer; transition:.2s; }
-    .btn:hover { filter:brightness(0.95); }
-    input[type=file]{ display:none; }
-
-    /* Layer list */
-    .layer-item{ display:flex; align-items:center; gap:8px; padding:6px 0; border-bottom:1px dashed #1f2937; }
-    .layer-item:last-child{ border-bottom:0; }
-
-    /* Popup image */
-    .leaflet-popup-content { margin:8px; }
-    .leaflet-popup-content img { display:block; width:220px; max-width:220px; border-radius:10px; margin:8px 0 0; object-fit:cover; }
-
-    /* Cluster look tweaks (dark) */
-    .marker-cluster-small, .marker-cluster-medium, .marker-cluster-large { background: rgba(34,197,94,.15); }
-    .marker-cluster div { background: var(--accent); color:#fff; border:2px solid #052e16; }
-  </style>
+/* Panel konten kecil */
+.panel {
+  position:absolute;
+  top:10px; left:70px;
+  width:300px; max-height:90%;
+  overflow-y:auto;
+  background:rgba(0,0,0,0.9);
+  color:#fff;
+  padding:16px;
+  border-radius:10px;
+  backdrop-filter:blur(8px);
+  box-shadow:0 0 10px rgba(0,0,0,0.5);
+  transition:opacity 0.3s, transform 0.3s;
+  opacity:0;
+  pointer-events:none;
+  transform:translateX(-20px);
+  z-index:999;
+}
+.panel.show {
+  opacity:1;
+  pointer-events:auto;
+  transform:translateX(0);
+}
+h2 {
+  margin:0 0 8px 0;
+  font-size:17px;
+  border-bottom:1px solid #333;
+  padding-bottom:4px;
+}
+button {
+  background:#22c55e;
+  border:none; color:#fff;
+  border-radius:6px;
+  padding:6px 10px;
+  cursor:pointer; margin-top:8px;
+  width:100%;
+}
+button:hover {background:#16a34a;}
+input[type=file]{display:none;}
+.layerItem {display:flex;align-items:center;gap:6px;margin:4px 0;}
+canvas {margin-top:8px;}
+.leaflet-popup-content img{width:200px;border-radius:8px;margin-top:8px;}
+</style>
 </head>
+
 <body>
-  <!-- Sidebar rail -->
-  <div id="sidebar" aria-label="Sidebar">
-    <div class="menu-btn" title="Statistik" onclick="togglePanel('stats')">📊</div>
-    <div class="menu-btn" title="Layer (KMZ/KML)" onclick="togglePanel('layers')">📂</div>
-    <div class="menu-btn" title="Gambar (Draw)" onclick="togglePanel('draw')">✏️</div>
-  </div>
+<div id="sidebar">
+  <div class="menu-btn" title="Statistik" onclick="togglePanel('stats')">📊</div>
+  <div class="menu-btn" title="Layer KMZ" onclick="togglePanel('layers')">📂</div>
+  <div class="menu-btn" title="Gambar Polygon" onclick="togglePanel('draw')">✏️</div>
+</div>
 
-  <!-- Panel: Statistik -->
-  <section id="panel-stats" class="panel" aria-live="polite">
-    <h2>📊 Statistik</h2>
-    <div id="stats-info"><small>Memuat data...</small></div>
-    <canvas id="stats-chart" width="280" height="280" class="panel-section"></canvas>
-  </section>
+<div id="panel-stats" class="panel">
+  <h2>📊 Statistik Monitoring</h2>
+  <div id="info">Memuat data...</div>
+  <canvas id="chart" width="260" height="260"></canvas>
+</div>
 
-  <!-- Panel: Layers -->
-  <section id="panel-layers" class="panel">
-    <h2>📂 Layer KMZ/KML</h2>
-    <button class="btn" onclick="document.getElementById('kmzInput').click()">Upload .kmz / .kml</button>
-    <input id="kmzInput" type="file" multiple accept=".kmz,.kml" />
-    <div id="layerList" class="panel-section"></div>
-    <div class="panel-section">
-      <button class="btn" onclick="clearOverlayLayers()">🗑️ Hapus Semua Layer</button>
-    </div>
-  </section>
+<div id="panel-layers" class="panel">
+  <h2>📂 Layer KMZ</h2>
+  <button onclick="document.getElementById('kmzInput').click()">Upload KMZ</button>
+  <input type="file" id="kmzInput" accept=".kmz,.kml" multiple>
+  <div id="layerList"></div>
+  <button onclick="clearLayers()">🗑️ Hapus Semua Layer</button>
+</div>
 
-  <!-- Panel: Draw -->
-  <section id="panel-draw" class="panel">
-    <h2>✏️ Gambar</h2>
-    <small>Gunakan toolbar di kanan atas peta untuk membuat polygon, polyline, atau marker. Fitur edit & hapus tersedia.</small>
-  </section>
+<div id="panel-draw" class="panel">
+  <h2>✏️ Gambar Polygon</h2>
+  <p style="font-size:13px;color:#aaa;">Gunakan alat di kanan atas peta untuk menggambar polygon, garis, atau marker.</p>
+</div>
 
-  <div id="map" role="application" aria-label="Peta Monitoring"></div>
+<div id="map"></div>
 
-  <script>
-  // ========================= KONFIGURASI =========================
-  const SHEET_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTifVQt8HlXS1HiDgLSiC3vWgFrWO7ygGKG8_YCOQpVTRlBI_txOkcASymbFi7NUuF3poSx3i3b9vo0/pub?output=csv";
-  const MAP_INIT = { center: [-2.98, 115.197], zoom: 6 }; // Indonesia Tengah sebagai default
-  const CLUSTER_THRESHOLD = 1000; // gunakan cluster jika titik > ambang ini
+<script>
+// ========================== KONFIGURASI =============================
+const SHEET_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTifVQt8HlXS1HiDgLSiC3vWgFrWO7ygGKG8_YCOQpVTRlBI_txOkcASymbFi7NUuF3poSx3i3b9vo0/pub?output=csv";
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxYourScriptID/exec"; // Ganti dengan URL WebApp kamu
+// ====================================================================
 
-  // ========================= INISIALISASI PETA ===================
-  const map = L.map('map', { preferCanvas: true, zoomControl: true }).setView(MAP_INIT.center, MAP_INIT.zoom);
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '© OpenStreetMap contributors', maxZoom: 20, detectRetina: true
-  }).addTo(map);
+// ========================== INISIALISASI PETA =======================
+const map = L.map('map', { preferCanvas:true }).setView([-2.98,115.197],6);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+  maxZoom:19, attribution:'© OpenStreetMap'
+}).addTo(map);
 
-  // Draw controls
-  const drawnItems = new L.FeatureGroup();
-  map.addLayer(drawnItems);
-  const drawControl = new L.Control.Draw({
-    position: 'topright',
-    edit: { featureGroup: drawnItems },
-    draw: {
-      polygon: { allowIntersection: false, showArea: true },
-      rectangle: true, circle: false, marker: true, polyline: true
-    }
+// ========================== PANEL TOGGLE ============================
+function togglePanel(id){
+  const panels=['stats','layers','draw'];
+  panels.forEach(p=>{
+    const el=document.getElementById('panel-'+p);
+    if(p===id) el.classList.toggle('show');
+    else el.classList.remove('show');
   });
-  map.addControl(drawControl);
-  map.on(L.Draw.Event.CREATED, (e) => drawnItems.addLayer(e.layer));
+}
 
-  // ========================= PANEL TOGGLE ========================
-  function togglePanel(which){
-    const ids = ['stats','layers','draw'];
-    ids.forEach(id => {
-      const el = document.getElementById(`panel-${id}`);
-      if(id === which) el.classList.toggle('show'); else el.classList.remove('show');
-    });
-  }
-
-  // ========================= LAYER OVERLAY (KMZ/KML) ============
-  const overlayLayers = {}; // name -> layerGroup
-  const layerListEl = document.getElementById('layerList');
-
-  function refreshLayerList(){
-    layerListEl.innerHTML = '';
-    Object.keys(overlayLayers).forEach(name => {
-      const row = document.createElement('div');
-      row.className = 'layer-item';
-      const cb = document.createElement('input');
-      cb.type = 'checkbox'; cb.checked = map.hasLayer(overlayLayers[name]);
-      cb.onchange = () => cb.checked ? overlayLayers[name].addTo(map) : map.removeLayer(overlayLayers[name]);
-      const label = document.createElement('span');
-      label.textContent = name;
-      row.appendChild(cb); row.appendChild(label);
-      layerListEl.appendChild(row);
-    });
-  }
-
-  function clearOverlayLayers(){
-    Object.values(overlayLayers).forEach(l => map.removeLayer(l));
-    Object.keys(overlayLayers).forEach(k => delete overlayLayers[k]);
-    refreshLayerList();
-  }
-
-  document.getElementById('kmzInput').addEventListener('change', async (e) => {
-    const files = Array.from(e.target.files || []);
-    for(const file of files){
-      try {
-        if(file.name.toLowerCase().endsWith('.kmz')){
-          await loadKMZ(file);
-        } else if(file.name.toLowerCase().endsWith('.kml')) {
-          const text = await file.text();
-          addKMLLayer(text, file.name.replace(/\.[^/.]+$/, ''));
-        }
-      } catch(err){
-        console.error('Gagal memuat layer', file.name, err);
-        alert(`Gagal memuat ${file.name}. Lihat console untuk detail.`);
-      }
-    }
-    e.target.value = '';
+// ========================== LAYER MANAGER ===========================
+const kmzLayers = {};
+function refreshLayerList() {
+  const div = document.getElementById("layerList");
+  div.innerHTML = "";
+  Object.keys(kmzLayers).forEach(name=>{
+    const container = document.createElement("div");
+    container.className="layerItem";
+    const chk=document.createElement("input");
+    chk.type="checkbox"; chk.checked=true;
+    chk.onchange=()=> chk.checked ? map.addLayer(kmzLayers[name]) : map.removeLayer(kmzLayers[name]);
+    const lbl=document.createElement("span");
+    lbl.textContent=name;
+    container.appendChild(chk);
+    container.appendChild(lbl);
+    div.appendChild(container);
   });
+}
 
-  async function loadKMZ(file){
-    const name = file.name.replace(/\.[^/.]+$/, '');
-    const ab = await file.arrayBuffer();
-    const zip = await JSZip.loadAsync(ab);
-    // cari file .kml di dalam KMZ
-    let kmlFile = zip.file(/\.kml$/i)[0];
-    if(!kmlFile) throw new Error('doc.kml tidak ditemukan di KMZ');
-    const kmlText = await kmlFile.async('text');
-    addKMLLayer(kmlText, name);
-  }
+// ========================== KMZ LOADER ==============================
+async function loadKMZ(file){
+  const name=file.name.replace(/\.[^/.]+$/,"");
+  const arrayBuffer=await file.arrayBuffer();
+  const zip=await JSZip.loadAsync(arrayBuffer);
+  const kmlText=await zip.file("doc.kml").async("text");
+  const xml=new DOMParser().parseFromString(kmlText,"application/xml");
 
-  function addKMLLayer(kmlText, name){
-    const xml = new DOMParser().parseFromString(kmlText, 'application/xml');
-    const layer = L.layerGroup();
+  const layer=L.layerGroup();
+  const placemarks=xml.getElementsByTagName("Placemark");
 
-    const placemarks = [...xml.getElementsByTagName('Placemark')];
-    placemarks.forEach(pm => {
-      const nameEl = pm.getElementsByTagName('name')[0];
-      const title = nameEl ? nameEl.textContent : 'Fitur';
-
-      // Point
-      const point = pm.getElementsByTagName('Point')[0];
-      if(point){
-        const coordTxt = point.getElementsByTagName('coordinates')[0]?.textContent?.trim();
-        if(coordTxt){
-          const [lon,lat] = coordTxt.split(',').map(Number);
-          L.marker([lat,lon]).addTo(layer).bindPopup(title);
-        }
-      }
-      // Polygon
-      const poly = pm.getElementsByTagName('Polygon')[0];
-      if(poly){
-        const rings = [...poly.getElementsByTagName('coordinates')].map(el => el.textContent.trim());
-        if(rings.length){
-          const latlngs = rings.map(txt => txt.split(/\s+/).map(x => x.split(',').slice(0,2).map(Number)).map(([lon,lat]) => [lat,lon]));
-          L.polygon(latlngs, { color:'#3b82f6', weight:2, fillOpacity:.25 }).addTo(layer).bindPopup(title);
-        }
-      }
-      // LineString
-      const line = pm.getElementsByTagName('LineString')[0];
-      if(line){
-        const txt = line.getElementsByTagName('coordinates')[0]?.textContent?.trim();
-        if(txt){
-          const latlngs = txt.split(/\s+/).map(v => v.split(',').slice(0,2).map(Number)).map(([lon,lat]) => [lat,lon]);
-          L.polyline(latlngs, { color:'#10b981', weight:2 }).addTo(layer).bindPopup(title);
-        }
-      }
+  for(const p of placemarks){
+    const coordsEl=p.getElementsByTagName("coordinates")[0];
+    if(!coordsEl) continue;
+    const coordsTxt=coordsEl.textContent.trim();
+    const coordsArr=coordsTxt.split(/\s+/).map(c=>{
+      const [lon,lat]=c.split(",").map(Number);
+      return [lat,lon];
     });
-
-    layer.addTo(map);
-    overlayLayers[name] = layer;
-    refreshLayerList();
-  }
-
-  // ========================= FETCH CSV & RENDER ===================
-  async function loadSpreadsheet(){
-    try {
-      const res = await fetch(SHEET_CSV, { cache: 'no-store' });
-      if(!res.ok) throw new Error(`HTTP ${res.status}`);
-      const csvText = await res.text();
-      const parsed = Papa.parse(csvText, { header: true, skipEmptyLines: true });
-      const rows = parsed.data || [];
-
-      const markersData = [];
-      const typeCount = Object.create(null);
-
-      for(const row of rows){
-        const lat = parseFloat(row.Y);
-        const lon = parseFloat(row.X);
-        if(Number.isFinite(lat) && Number.isFinite(lon)){
-          markersData.push(row);
-          const key = (row.Tanaman || 'Tidak Dikenal').trim();
-          typeCount[key] = (typeCount[key] || 0) + 1;
-        }
-      }
-
-      console.log('Loaded:', markersData.length, 'points from spreadsheet');
-      updateStatsPanel(markersData.length, Object.keys(typeCount).length);
-      renderChart(typeCount);
-
-      await renderPoints(markersData);
-    } catch(err){
-      console.error('Gagal memuat spreadsheet:', err);
-      document.getElementById('stats-info').innerHTML = '<span style="color:#f87171">Gagal memuat data. Coba reload.</span>';
+    if(coordsArr.length===1){
+      L.marker(coordsArr[0]).addTo(layer)
+        .bindPopup(p.getElementsByTagName("name")[0]?.textContent||"Titik");
+    } else if(coordsArr.length>2){
+      L.polygon(coordsArr,{color:"#3b82f6",weight:2,fillOpacity:0.25})
+        .addTo(layer)
+        .bindPopup(p.getElementsByTagName("name")[0]?.textContent||"Area");
     }
   }
 
-  function updateStatsPanel(totalPoints, jenisCount){
-    const el = document.getElementById('stats-info');
-    el.innerHTML = `<b>Total Titik:</b> ${totalPoints}<br/><b>Jenis Tanaman:</b> ${jenisCount}`;
+  kmzLayers[name]=layer;
+  layer.addTo(map);
+  refreshLayerList();
+}
+document.getElementById("kmzInput").addEventListener("change",async e=>{
+  for(const f of e.target.files) await loadKMZ(f);
+  e.target.value="";
+});
+function clearLayers(){
+  Object.values(kmzLayers).forEach(l=>map.removeLayer(l));
+  for(const k in kmzLayers) delete kmzLayers[k];
+  refreshLayerList();
+}
+
+// ========================== POLYGON DRAW ============================
+const drawnItems=new L.FeatureGroup();
+map.addLayer(drawnItems);
+const drawControl=new L.Control.Draw({
+  position:'topright', // ✅ Geser toolbar ke kanan atas
+  edit:{featureGroup:drawnItems},
+  draw:{
+    polygon:{allowIntersection:false,showArea:true},
+    rectangle:true,circle:false,marker:true,polyline:true
   }
+});
+map.addControl(drawControl);
+map.on(L.Draw.Event.CREATED,e=>drawnItems.addLayer(e.layer));
 
-  function buildPopupHTML(row){
-    const lokasi = row.Lokasi || '-';
-    const tanaman = row.Tanaman || '-';
-    const tinggi = row.Tinggi ? `${row.Tinggi} cm` : '-';
-    const tgl = row.Tanggal || '-';
-    const pengawas = row.Pengawas || '-';
-    const vendor = row.Vendor || '-';
-    const imgLink = row.LINK || row.Gambar || '';
-
-    const imgTag = imgLink ? `<img src="${imgLink}" loading="lazy" referrerpolicy="no-referrer" alt="Foto ${tanaman}">` : '';
-
-    return `
-      <div style="min-width:220px">
-        <div style="font-weight:700; margin-bottom:2px">${lokasi}</div>
-        <div>🌱 ${tanaman}</div>
-        <div>📏 ${tinggi}</div>
-        <div>📅 ${tgl}</div>
-        <div>👷 ${pengawas}</div>
-        <div>🏢 ${vendor}</div>
-        ${imgTag}
-      </div>`;
+// ========================== FUNGSI AMBIL GAMBAR DARI PATH ============
+async function getImageFromPath(path){
+  if(!path) return '';
+  try {
+    const res = await fetch(`${APPS_SCRIPT_URL}?mode=getImage&path=${encodeURIComponent(path)}`);
+    const json = await res.json();
+    return json.url || '';
+  } catch (err) {
+    console.warn("Gagal ambil gambar:", err);
+    return '';
   }
+}
 
-  async function renderPoints(rows){
-    const coords = [];
+// ========================== LOAD SPREADSHEET DATA ===================
+async function loadSpreadsheet(){
+  document.getElementById("info").textContent = "📡 Memuat data dari spreadsheet...";
+  const res = await fetch(SHEET_CSV);
+  const csv = await res.text();
+  const data = Papa.parse(csv,{header:true}).data;
 
-    if(rows.length > CLUSTER_THRESHOLD){
-      // Gunakan MarkerCluster dengan marker kecil (divIcon) supaya mirip circle marker
-      const cluster = L.markerClusterGroup({
-        chunkedLoading: true,
-        spiderfyOnMaxZoom: true,
-        disableClusteringAtZoom: 18,
-      });
-      const dotIcon = (color = '#22c55e') => L.divIcon({
-        className: 'dot-icon',
-        html: `<span style="display:inline-block;width:8px;height:8px;background:${color};border-radius:9999px;border:1px solid #064e3b"></span>` ,
-        iconSize: [8,8], iconAnchor: [4,4]
-      });
+  let total = 0;
+  const typeCount = {};
+  const coords = [];
 
-      rows.forEach(row => {
-        const lat = parseFloat(row.Y), lon = parseFloat(row.X);
-        if(!Number.isFinite(lat) || !Number.isFinite(lon)) return;
-        coords.push([lat,lon]);
-        const m = L.marker([lat,lon], { icon: dotIcon() });
-        m.bindPopup(buildPopupHTML(row));
-        cluster.addLayer(m);
-      });
-      map.addLayer(cluster);
-    } else {
-      const group = L.layerGroup();
-      rows.forEach(row => {
-        const lat = parseFloat(row.Y), lon = parseFloat(row.X);
-        if(!Number.isFinite(lat) || !Number.isFinite(lon)) return;
-        coords.push([lat,lon]);
-        const marker = L.circleMarker([lat,lon], {
-          radius: 4, color: '#22c55e', fillColor: '#22c55e', fillOpacity: .9, weight: .5
-        });
-        marker.bindPopup(buildPopupHTML(row));
-        marker.addTo(group);
-      });
-      group.addTo(map);
-    }
+  for(const row of data){
+    const lat = parseFloat(row.Y), lon = parseFloat(row.X);
+    if(isNaN(lat)||isNaN(lon)) continue;
+    total++;
+    coords.push([lat,lon]);
+    const tanaman = (row.Tanaman||"Tidak Dikenal").trim();
+    typeCount[tanaman] = (typeCount[tanaman]||0)+1;
 
-    if(coords.length){
-      try { map.fitBounds(coords, { padding: [20,20] }); } catch(_) {}
-    }
-  }
+    const marker = L.circleMarker([lat,lon],{
+      radius:4,color:"#22c55e",fillColor:"#22c55e",fillOpacity:0.9,weight:0.5
+    }).addTo(map);
 
-  // ========================= CHART ===============================
-  let pieChart;
-  function renderChart(typeCount){
-    const labels = Object.keys(typeCount);
-    const data = Object.values(typeCount);
-    const colors = labels.map(() => `hsl(${Math.floor(Math.random()*360)},70%,60%)`);
-
-    const ctx = document.getElementById('stats-chart');
-    if(pieChart) pieChart.destroy();
-    pieChart = new Chart(ctx, {
-      type: 'pie',
-      data: { labels, datasets: [{ data, backgroundColor: colors }] },
-      options: {
-        plugins: { legend: { labels: { color: '#fff', boxWidth: 14 } } },
-        animation: { duration: 300 }
-      }
+    marker.on("click", async ()=>{
+      const img = await getImageFromPath(row.Gambar);
+      const html = `
+        <b>${row.Lokasi||"-"}</b><br>
+        🌱 ${row.Tanaman||"-"}<br>
+        📏 ${row.Tinggi||"-"} cm<br>
+        📅 ${row.Tanggal||"-"}<br>
+        👷 ${row.Pengawas||"-"}<br>
+        🏢 ${row.Vendor||"-"}<br>
+        ${img ? `<img src="${img}" loading="lazy">` : ""}
+      `;
+      marker.bindPopup(html).openPopup();
     });
   }
 
-  // ========================= STARTUP =============================
-  loadSpreadsheet();
-  </script>
+  if(coords.length) map.fitBounds(coords);
+  document.getElementById("info").innerHTML=`
+    <b>Total Titik:</b> ${total}<br>
+    <b>Jenis Tanaman:</b> ${Object.keys(typeCount).length}
+  `;
+  renderChart(typeCount);
+  console.log("Loaded:", total, "points from spreadsheet");
+}
+
+// ========================== CHART ===========================
+let chart;
+function renderChart(obj){
+  const ctx=document.getElementById("chart");
+  const labels=Object.keys(obj);
+  const values=Object.values(obj);
+  const colors=labels.map(()=>`hsl(${Math.random()*360},70%,60%)`);
+  if(chart) chart.destroy();
+  chart=new Chart(ctx,{
+    type:'pie',
+    data:{labels,datasets:[{data:values,backgroundColor:colors}]},
+    options:{plugins:{legend:{labels:{color:'#fff',font:{size:12}}}}}
+  });
+}
+
+// ========================== MULAI ===========================
+loadSpreadsheet();
+</script>
 </body>
 </html>
