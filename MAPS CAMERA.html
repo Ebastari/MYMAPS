@@ -9,7 +9,7 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 
-<!-- Papaparse -->
+<!-- PapaParse -->
 <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
 
 <style>
@@ -36,7 +36,7 @@ html,body {
 #side-panel {
   width:0;
   overflow:hidden;
-  background:#1a1a1a;
+  background:#111;
   border-left:2px solid #333;
   display:flex;
   flex-direction:column;
@@ -44,9 +44,10 @@ html,body {
   align-items:center;
   opacity:0;
   transition:all 0.4s ease;
+  position:relative;
 }
 #side-panel.show {
-  width:35%;
+  width:40%;
   opacity:1;
   padding:16px;
 }
@@ -56,8 +57,8 @@ html,body {
 }
 #photo {
   width:100%;
-  max-width:300px;
-  max-height:300px;
+  max-width:320px;
+  max-height:260px;
   object-fit:contain;
   border-radius:10px;
   box-shadow:0 0 10px rgba(0,0,0,0.6);
@@ -92,6 +93,39 @@ a:hover {text-decoration:underline;}
   color:#facc15 !important;
   fill-opacity:1 !important;
 }
+#preview-container {
+  display:none;
+  position:absolute;
+  top:0; left:0;
+  width:100%; height:100%;
+  background:#000;
+  justify-content:center;
+  align-items:center;
+  flex-direction:column;
+  z-index:100;
+}
+#preview-container.show {
+  display:flex;
+}
+#preview-container img {
+  max-width:90%;
+  max-height:85%;
+  border-radius:12px;
+  object-fit:contain;
+  box-shadow:0 0 20px rgba(0,0,0,0.8);
+}
+#closePreview {
+  position:absolute;
+  top:10px; right:15px;
+  font-size:18px;
+  color:#fff;
+  background:#222;
+  border:none;
+  border-radius:8px;
+  padding:6px 12px;
+  cursor:pointer;
+}
+#closePreview:hover {background:#22c55e;color:#000;}
 </style>
 </head>
 <body>
@@ -106,6 +140,12 @@ a:hover {text-decoration:underline;}
     <div id="info">Klik titik pada peta.</div>
     <img id="photo" src="" alt="" style="display:none;">
     <div id="linkArea"></div>
+
+    <!-- Preview besar di area hitam -->
+    <div id="preview-container">
+      <button id="closePreview" onclick="closePreview()">✖</button>
+      <img id="previewImage" src="" alt="Preview">
+    </div>
   </div>
 </div>
 
@@ -162,21 +202,17 @@ function showPhotoPanel(row, marker){
   const photoEl = document.getElementById("photo");
   const linkDiv = document.getElementById("linkArea");
 
-  // Reset marker aktif sebelumnya
   if(activeMarker){
     activeMarker.setStyle({ color:"#22c55e", fillColor:"#22c55e" });
   }
 
-  // Tandai marker aktif (highlight)
   marker.setStyle({ color:"#facc15", fillColor:"#fde047" });
   activeMarker = marker;
 
-  // Aktifkan panel split
   panel.classList.add("show");
 
-  // Isi data
   const imgUrl = driveToDirect(row.LINK || row.Gambar || "");
-  const link = imgUrl ? `<a href="${imgUrl}" target="_blank">🔗 Lihat di Google Drive</a>` : "";
+  const link = imgUrl ? `<a href="#" onclick="showPreview('${imgUrl}');return false;">👁️ Lihat foto di panel</a>` : "";
 
   infoDiv.innerHTML = `
     <div class="info-line"><b>📍 Lokasi:</b> ${row.Lokasi||"-"}</div>
@@ -197,18 +233,27 @@ function showPhotoPanel(row, marker){
     linkDiv.innerHTML = "<i style='color:#777'>Tidak ada foto tersedia</i>";
   }
 
-  // Zoom ke titik
   if(row.Y && row.X){
     map.flyTo([parseFloat(row.Y), parseFloat(row.X)], 14, { duration: 1.2 });
   }
+}
+
+// =================== PREVIEW BESAR =================
+function showPreview(imgUrl){
+  const preview = document.getElementById("preview-container");
+  const img = document.getElementById("previewImage");
+  img.src = imgUrl;
+  preview.classList.add("show");
+}
+
+function closePreview(){
+  document.getElementById("preview-container").classList.remove("show");
 }
 
 // =================== TUTUP PANEL =================
 function closePanel(){
   const panel = document.getElementById("side-panel");
   panel.classList.remove("show");
-
-  // Hapus highlight marker
   if(activeMarker){
     activeMarker.setStyle({ color:"#22c55e", fillColor:"#22c55e" });
     activeMarker = null;
