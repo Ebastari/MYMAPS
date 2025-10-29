@@ -3,88 +3,212 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Peta Monitoring Sederhana</title>
+<title>Peta Monitoring Profesional - Spreadsheet + KMZ + Statistik</title>
 
+<!-- Leaflet -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<!-- Leaflet Draw -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet-draw@1.0.4/dist/leaflet.draw.css"/>
+<script src="https://cdn.jsdelivr.net/npm/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+<!-- JSZip -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+<!-- Papaparse -->
 <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
 
 <style>
-  html,body{margin:0;height:100%;font-family:sans-serif;}
-  #map{width:100%;height:100%;}
-  .leaflet-popup-content img{width:160px;border-radius:6px;margin-top:4px;}
-  .toolbar{
-    position:absolute;top:10px;left:10px;z-index:999;
-    background:rgba(0,0,0,0.6);color:#fff;padding:8px 12px;border-radius:8px;
-    font-size:13px;
+  html,body {height:100%;margin:0;font-family:"Inter",system-ui,sans-serif;background:#111;color:#fff;}
+  #map {width:100%;height:100vh;}
+  /* Sidebar */
+  #sidebar {
+    position:absolute;top:0;left:0;height:100%;width:320px;
+    background:rgba(0,0,0,0.8);
+    backdrop-filter:blur(6px);
+    padding:16px;
+    overflow-y:auto;
+    box-shadow:2px 0 8px rgba(0,0,0,0.4);
+    z-index:1000;
   }
+  #map-container {margin-left:320px;}
+  h2 {margin:0 0 8px 0;font-size:18px;border-bottom:1px solid #333;padding-bottom:4px;}
+  button {
+    background:#22c55e;border:none;color:#fff;border-radius:6px;
+    padding:6px 10px;cursor:pointer;margin-top:8px;width:100%;
+  }
+  button:hover {background:#16a34a;}
+  input[type=file]{display:none;}
+  .layerItem {display:flex;align-items:center;gap:6px;margin:4px 0;}
+  canvas {margin-top:8px;}
 </style>
 </head>
+
 <body>
-<div id="map"></div>
-<div class="toolbar">📍 Memuat data dari Spreadsheet...</div>
+<div id="sidebar">
+  <h2>📊 Statistik Monitoring</h2>
+  <div id="info">Memuat data...</div>
+  <canvas id="chart" width="280" height="280"></canvas>
+  <hr style="border:0;border-top:1px solid #333;margin:10px 0;">
+  <h2>📂 Layer KMZ</h2>
+  <button onclick="document.getElementById('kmzInput').click()">Upload KMZ</button>
+  <input type="file" id="kmzInput" accept=".kmz,.kml" multiple>
+  <div id="layerList"></div>
+  <button onclick="clearLayers()">🗑️ Hapus Semua Layer</button>
+  <hr style="border:0;border-top:1px solid #333;margin:10px 0;">
+  <h2>✏️ Gambar Polygon</h2>
+  <p style="font-size:12px;color:#aaa;">Gunakan tombol di peta (kiri atas) untuk menggambar polygon, polyline, atau titik.</p>
+</div>
+
+<div id="map-container">
+  <div id="map"></div>
+</div>
 
 <script>
-// URL Spreadsheet kamu (output=csv)
+// ======================= KONFIGURASI ===========================
 const SHEET_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTifVQt8HlXS1HiDgLSiC3vWgFrWO7ygGKG8_YCOQpVTRlBI_txOkcASymbFi7NUuF3poSx3i3b9vo0/pub?output=csv";
-// Proxy untuk bypass CORS
-const PROXY = "https://api.allorigins.win/raw?url=" + encodeURIComponent(SHEET_CSV);
+// ===============================================================
 
-const map = L.map('map').setView([-2.98,115.197],6);
+// Inisialisasi Peta
+const map = L.map('map', { preferCanvas:true }).setView([-2.98,115.197],6);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
-  maxZoom:19,
-  attribution:'© OpenStreetMap'
+  maxZoom:19, attribution:'© OpenStreetMap'
 }).addTo(map);
 
-// fungsi bantu: ubah link Google Drive ke direct image
-function driveImage(url){
-  const m = (url||"").match(/\/d\/([^/]+)/);
-  return m ? `https://drive.google.com/uc?export=view&id=${m[1]}` : url;
-}
-
-// fungsi menambah marker ringan
-function addCircle(lat, lon, html, color="#22c55e"){
-  L.circleMarker([lat,lon],{
-    radius:4,
-    color:color,
-    fillColor:color,
-    fillOpacity:0.8,
-    weight:0.5
-  }).bindPopup(html).addTo(map);
-}
-
-fetch(PROXY)
-  .then(r=>r.text())
-  .then(csv=>{
-    const data = Papa.parse(csv,{header:true}).data;
-    const coords=[];
-    data.forEach(row=>{
-      const lat = parseFloat(row.Y);
-      const lon = parseFloat(row.X);
-      if(isNaN(lat)||isNaN(lon)) return;
-      const img = row.LINK ? `<img src="${driveImage(row.LINK)}" loading="lazy">` : "";
-      const html = `
-        <b>${row.Lokasi||"Tanpa Nama"}</b><br>
-        Tanaman: ${row.Tanaman||"-"}<br>
-        Tinggi: ${row.Tinggi||"-"} cm<br>
-        Tahun: ${row["Tahun Tanam"]||"-"}<br>
-        Pengawas: ${row.Pengawas||"-"}<br>
-        ${img}
-      `;
-      addCircle(lat,lon,html);
-      coords.push([lat,lon]);
-    });
-
-    if(coords.length>0){
-      map.fitBounds(coords);
-      document.querySelector(".toolbar").textContent = `✅ ${coords.length} titik dimuat dari Spreadsheet.`;
-    }else{
-      document.querySelector(".toolbar").textContent = "⚠️ Tidak ada titik valid di CSV.";
-    }
-  })
-  .catch(err=>{
-    document.querySelector(".toolbar").textContent = "❌ Gagal memuat data: " + err;
+// ====================== Layer Manager ==========================
+const kmzLayers = {};
+function refreshLayerList() {
+  const div = document.getElementById("layerList");
+  div.innerHTML = "";
+  Object.keys(kmzLayers).forEach(name=>{
+    const container = document.createElement("div");
+    container.className="layerItem";
+    const chk=document.createElement("input");
+    chk.type="checkbox"; chk.checked=true;
+    chk.onchange=()=> chk.checked ? map.addLayer(kmzLayers[name]) : map.removeLayer(kmzLayers[name]);
+    const lbl=document.createElement("span");
+    lbl.textContent=name;
+    container.appendChild(chk);
+    container.appendChild(lbl);
+    div.appendChild(container);
   });
+}
+
+// ====================== KMZ Loader =============================
+async function loadKMZ(file){
+  const name=file.name.replace(/\.[^/.]+$/,"");
+  const arrayBuffer=await file.arrayBuffer();
+  const zip=await JSZip.loadAsync(arrayBuffer);
+  const kmlText=await zip.file("doc.kml").async("text");
+  const xml=new DOMParser().parseFromString(kmlText,"application/xml");
+
+  const layer=L.layerGroup();
+  const placemarks=xml.getElementsByTagName("Placemark");
+
+  for(const p of placemarks){
+    const coordsEl=p.getElementsByTagName("coordinates")[0];
+    if(!coordsEl) continue;
+    const coordsTxt=coordsEl.textContent.trim();
+    const coordsArr=coordsTxt.split(/\s+/).map(c=>{
+      const [lon,lat]=c.split(",").map(Number);
+      return [lat,lon];
+    });
+    if(coordsArr.length===1){
+      L.marker(coordsArr[0]).addTo(layer)
+        .bindPopup(p.getElementsByTagName("name")[0]?.textContent||"Titik");
+    } else if(coordsArr.length>2){
+      L.polygon(coordsArr,{color:"#3b82f6",weight:2,fillOpacity:0.25})
+        .addTo(layer)
+        .bindPopup(p.getElementsByTagName("name")[0]?.textContent||"Area");
+    }
+  }
+
+  kmzLayers[name]=layer;
+  layer.addTo(map);
+  refreshLayerList();
+}
+document.getElementById("kmzInput").addEventListener("change",async e=>{
+  for(const f of e.target.files) await loadKMZ(f);
+  e.target.value="";
+});
+function clearLayers(){
+  Object.values(kmzLayers).forEach(l=>map.removeLayer(l));
+  for(const k in kmzLayers) delete kmzLayers[k];
+  refreshLayerList();
+}
+
+// ======================= Polygon Drawing =======================
+const drawnItems=new L.FeatureGroup();
+map.addLayer(drawnItems);
+const drawControl=new L.Control.Draw({
+  edit:{featureGroup:drawnItems},
+  draw:{
+    polygon:{allowIntersection:false,showArea:true},
+    rectangle:true,circle:false,marker:true,polyline:true
+  }
+});
+map.addControl(drawControl);
+map.on(L.Draw.Event.CREATED,e=>drawnItems.addLayer(e.layer));
+
+// ======================= Load Spreadsheet Data =================
+async function loadSpreadsheet(){
+  const res=await fetch(SHEET_CSV);
+  const csv=await res.text();
+  const data=Papa.parse(csv,{header:true}).data;
+
+  let total=0;
+  const typeCount={};
+  const coords=[];
+  data.forEach(row=>{
+    const lat=parseFloat(row.Y),lon=parseFloat(row.X);
+    if(isNaN(lat)||isNaN(lon))return;
+    total++;
+    coords.push([lat,lon]);
+    const t=(row.Tanaman||"Tidak Dikenal").trim();
+    typeCount[t]=(typeCount[t]||0)+1;
+
+    const marker=L.circleMarker([lat,lon],{
+      radius:4,color:"#22c55e",fillColor:"#22c55e",fillOpacity:0.9,weight:0.5
+    }).addTo(map);
+    const html=`
+      <b>${row.Lokasi||"-"}</b><br>
+      🌱 ${row.Tanaman||"-"}<br>
+      📏 ${row.Tinggi||"-"} cm<br>
+      📅 ${row.Tanggal||"-"}<br>
+      👷 ${row.Pengawas||"-"}<br>
+      🏢 ${row.Vendor||"-"}
+    `;
+    marker.bindPopup(html);
+  });
+
+  if(coords.length) map.fitBounds(coords);
+  document.getElementById("info").innerHTML=`
+    <b>Total Titik:</b> ${total}<br>
+    <b>Jenis Tanaman:</b> ${Object.keys(typeCount).length}
+  `;
+  renderChart(typeCount);
+}
+
+// ======================= Chart =======================
+let chart;
+function renderChart(obj){
+  const ctx=document.getElementById("chart");
+  const labels=Object.keys(obj);
+  const values=Object.values(obj);
+  const colors=labels.map(()=>`hsl(${Math.random()*360},70%,60%)`);
+  if(chart) chart.destroy();
+  chart=new Chart(ctx,{
+    type:'pie',
+    data:{labels,datasets:[{data:values,backgroundColor:colors}]},
+    options:{plugins:{legend:{labels:{color:'#fff'}}}}
+  });
+}
+
+loadSpreadsheet();
 </script>
 </body>
 </html>
