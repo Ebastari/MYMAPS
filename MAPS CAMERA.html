@@ -3,21 +3,11 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Peta Monitoring Profesional - Foto Otomatis dari Drive</title>
+<title>Peta Monitoring - Split View Foto Proporsional</title>
 
 <!-- Leaflet -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
-
-<!-- Leaflet Draw -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet-draw@1.0.4/dist/leaflet.draw.css"/>
-<script src="https://cdn.jsdelivr.net/npm/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
-
-<!-- Chart.js -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-
-<!-- JSZip (KMZ) -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
 <!-- PapaParse -->
 <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
@@ -26,287 +16,146 @@
 html,body {
   margin:0;
   height:100%;
-  background:#111;
   font-family:"Inter",system-ui,sans-serif;
-}
-#map {width:100%;height:100vh;}
-
-/* Sidebar mini */
-#sidebar {
-  position:absolute;
-  top:0; left:0;
-  width:60px; height:100%;
-  background:#000;
-  display:flex; flex-direction:column;
-  align-items:center;
-  padding:10px 0;
-  gap:10px;
-  z-index:1000;
-  box-shadow:2px 0 8px rgba(0,0,0,0.4);
-}
-.menu-btn {
-  width:44px; height:44px;
-  display:flex; align-items:center; justify-content:center;
-  border-radius:8px;
-  background:#1e1e1e;
-  color:#22c55e;
-  font-size:20px;
-  cursor:pointer;
-  transition:all 0.25s;
-}
-.menu-btn:hover { background:#22c55e; color:#fff; }
-
-/* Panel konten */
-.panel {
-  position:absolute;
-  top:10px; left:70px;
-  width:300px; max-height:90%;
-  overflow-y:auto;
-  background:rgba(0,0,0,0.9);
+  background:#0f0f0f;
   color:#fff;
+  display:flex;
+}
+#map {
+  width:65%;
+  height:100vh;
+}
+#side-panel {
+  width:35%;
+  height:100vh;
+  background:#1a1a1a;
+  border-left:2px solid #333;
+  display:flex;
+  flex-direction:column;
+  justify-content:flex-start;
+  align-items:center;
   padding:16px;
-  border-radius:10px;
-  backdrop-filter:blur(8px);
-  box-shadow:0 0 10px rgba(0,0,0,0.5);
-  transition:opacity 0.3s, transform 0.3s;
-  opacity:0;
-  pointer-events:none;
-  transform:translateX(-20px);
-  z-index:999;
+  box-sizing:border-box;
+  overflow-y:auto;
+  transition:all 0.3s ease;
 }
-.panel.show {
-  opacity:1;
-  pointer-events:auto;
-  transform:translateX(0);
+#side-panel h2 {
+  margin-top:0;
+  color:#22c55e;
 }
-h2 {
-  margin:0 0 8px 0;
-  font-size:17px;
-  border-bottom:1px solid #333;
-  padding-bottom:4px;
-}
-button {
-  background:#22c55e;
-  border:none; color:#fff;
-  border-radius:6px;
-  padding:6px 10px;
-  cursor:pointer; margin-top:8px;
+#photo {
   width:100%;
+  max-width:280px;
+  max-height:280px;
+  object-fit:contain; /* ✅ menjaga rasio */
+  border-radius:10px;
+  box-shadow:0 0 10px rgba(0,0,0,0.6);
+  margin:10px auto;
+  display:block;
+  background:#0f0f0f;
 }
-button:hover {background:#16a34a;}
-input[type=file]{display:none;}
-.layerItem {display:flex;align-items:center;gap:6px;margin:4px 0;}
-canvas {margin-top:8px;}
-.leaflet-popup-content img{
-  width:220px;
-  border-radius:8px;
-  margin-top:8px;
-  box-shadow:0 2px 8px rgba(0,0,0,0.4);
+.info-line {
+  margin:8px 0;
+  font-size:14px;
+}
+a {
+  color:#3b82f6;
+  text-decoration:none;
+}
+a:hover {text-decoration:underline;}
+@media (max-width:900px){
+  #map{width:100%;}
+  #side-panel{position:absolute;right:0;top:0;width:90%;background:rgba(0,0,0,0.95);}
 }
 </style>
 </head>
-
 <body>
-<!-- Sidebar mini -->
-<div id="sidebar">
-  <div class="menu-btn" title="Statistik" onclick="togglePanel('stats')">📊</div>
-  <div class="menu-btn" title="Layer KMZ" onclick="togglePanel('layers')">📂</div>
-  <div class="menu-btn" title="Gambar Polygon" onclick="togglePanel('draw')">✏️</div>
-</div>
-
-<!-- Panel Statistik -->
-<div id="panel-stats" class="panel">
-  <h2>📊 Statistik Monitoring</h2>
-  <div id="info">Memuat data...</div>
-  <canvas id="chart" width="260" height="260"></canvas>
-</div>
-
-<!-- Panel Layer -->
-<div id="panel-layers" class="panel">
-  <h2>📂 Layer KMZ</h2>
-  <button onclick="document.getElementById('kmzInput').click()">Upload KMZ</button>
-  <input type="file" id="kmzInput" accept=".kmz,.kml" multiple>
-  <div id="layerList"></div>
-  <button onclick="clearLayers()">🗑️ Hapus Semua Layer</button>
-</div>
-
-<!-- Panel Gambar Polygon -->
-<div id="panel-draw" class="panel">
-  <h2>✏️ Gambar Polygon</h2>
-  <p style="font-size:13px;color:#aaa;">Gunakan alat di kanan atas peta untuk menggambar polygon, garis, atau marker.</p>
-</div>
 
 <div id="map"></div>
 
-<script>
-// ========================== KONFIGURASI =============================
-const SHEET_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTifVQt8HlXS1HiDgLSiC3vWgFrWO7ygGKG8_YCOQpVTRlBI_txOkcASymbFi7NUuF3poSx3i3b9vo0/pub?output=csv";
-// ====================================================================
+<!-- PANEL FOTO -->
+<div id="side-panel">
+  <h2>📷 Detail Titik</h2>
+  <div id="info">Klik salah satu titik di peta untuk melihat detailnya.</div>
+  <img id="photo" src="" alt="" style="display:none;">
+  <div id="linkArea"></div>
+</div>
 
-// ========================== INISIALISASI PETA =======================
+<script>
+// =================== CONFIG ===================
+const SHEET_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTifVQt8HlXS1HiDgLSiC3vWgFrWO7ygGKG8_YCOQpVTRlBI_txOkcASymbFi7NUuF3poSx3i3b9vo0/pub?output=csv";
+
+// =================== INIT MAP =================
 const map = L.map('map', { preferCanvas:true }).setView([-2.98,115.197],6);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
   maxZoom:19, attribution:'© OpenStreetMap'
 }).addTo(map);
 
-// ========================== PANEL TOGGLE ============================
-function togglePanel(id){
-  const panels=['stats','layers','draw'];
-  panels.forEach(p=>{
-    const el=document.getElementById('panel-'+p);
-    if(p===id) el.classList.toggle('show');
-    else el.classList.remove('show');
-  });
-}
-
-// ========================== LAYER MANAGER ===========================
-const kmzLayers = {};
-function refreshLayerList() {
-  const div = document.getElementById("layerList");
-  div.innerHTML = "";
-  Object.keys(kmzLayers).forEach(name=>{
-    const container = document.createElement("div");
-    container.className="layerItem";
-    const chk=document.createElement("input");
-    chk.type="checkbox"; chk.checked=true;
-    chk.onchange=()=> chk.checked ? map.addLayer(kmzLayers[name]) : map.removeLayer(kmzLayers[name]);
-    const lbl=document.createElement("span");
-    lbl.textContent=name;
-    container.appendChild(chk);
-    container.appendChild(lbl);
-    div.appendChild(container);
-  });
-}
-
-// ========================== KMZ LOADER ==============================
-async function loadKMZ(file){
-  const name=file.name.replace(/\.[^/.]+$/,"");
-  const arrayBuffer=await file.arrayBuffer();
-  const zip=await JSZip.loadAsync(arrayBuffer);
-  const kmlText=await zip.file("doc.kml").async("text");
-  const xml=new DOMParser().parseFromString(kmlText,"application/xml");
-
-  const layer=L.layerGroup();
-  const placemarks=xml.getElementsByTagName("Placemark");
-
-  for(const p of placemarks){
-    const coordsEl=p.getElementsByTagName("coordinates")[0];
-    if(!coordsEl) continue;
-    const coordsTxt=coordsEl.textContent.trim();
-    const coordsArr=coordsTxt.split(/\s+/).map(c=>{
-      const [lon,lat]=c.split(",").map(Number);
-      return [lat,lon];
-    });
-    if(coordsArr.length===1){
-      L.marker(coordsArr[0]).addTo(layer)
-        .bindPopup(p.getElementsByTagName("name")[0]?.textContent||"Titik");
-    } else if(coordsArr.length>2){
-      L.polygon(coordsArr,{color:"#3b82f6",weight:2,fillOpacity:0.25})
-        .addTo(layer)
-        .bindPopup(p.getElementsByTagName("name")[0]?.textContent||"Area");
-    }
-  }
-
-  kmzLayers[name]=layer;
-  layer.addTo(map);
-  refreshLayerList();
-}
-document.getElementById("kmzInput").addEventListener("change",async e=>{
-  for(const f of e.target.files) await loadKMZ(f);
-  e.target.value="";
-});
-function clearLayers(){
-  Object.values(kmzLayers).forEach(l=>map.removeLayer(l));
-  for(const k in kmzLayers) delete kmzLayers[k];
-  refreshLayerList();
-}
-
-// ========================== POLYGON DRAW ============================
-const drawnItems=new L.FeatureGroup();
-map.addLayer(drawnItems);
-const drawControl=new L.Control.Draw({
-  position:'topright',
-  edit:{featureGroup:drawnItems},
-  draw:{
-    polygon:{allowIntersection:false,showArea:true},
-    rectangle:true,circle:false,marker:true,polyline:true
-  }
-});
-map.addControl(drawControl);
-map.on(L.Draw.Event.CREATED,e=>drawnItems.addLayer(e.layer));
-
-// ========================== KONVERSI LINK DRIVE =====================
+// =================== UTIL: Convert Drive Link =================
 function driveToDirect(url){
   if(!url) return "";
-  // tangkap ID file dari berbagai format link Drive
   const match = url.match(/[-\w]{25,}/);
   return match ? `https://drive.google.com/uc?export=view&id=${match[0]}` : url;
 }
 
-// ========================== LOAD SPREADSHEET ========================
+// =================== LOAD SPREADSHEET =================
 async function loadSpreadsheet(){
-  document.getElementById("info").textContent = "📡 Memuat data dari spreadsheet...";
   const res = await fetch(SHEET_CSV);
   const csv = await res.text();
   const data = Papa.parse(csv,{header:true}).data;
 
-  let total = 0;
-  const typeCount = {};
   const coords = [];
 
   for(const row of data){
     const lat = parseFloat(row.Y), lon = parseFloat(row.X);
     if(isNaN(lat)||isNaN(lon)) continue;
-    total++;
     coords.push([lat,lon]);
-    const tanaman = (row.Tanaman||"Tidak Dikenal").trim();
-    typeCount[tanaman] = (typeCount[tanaman]||0)+1;
 
     const marker = L.circleMarker([lat,lon],{
       radius:4,color:"#22c55e",fillColor:"#22c55e",fillOpacity:0.9,weight:0.5
     }).addTo(map);
 
-    marker.on("click", ()=> {
-      const imgUrl = driveToDirect(row.LINK || row.Gambar || "");
-      const imgHTML = imgUrl ? `<img src="${imgUrl}" loading="lazy">` : "<i style='color:#777'>Tidak ada foto</i>";
-
-      const html = `
-        <b>${row.Lokasi||"-"}</b><br>
-        🌱 ${row.Tanaman||"-"}<br>
-        📏 ${row.Tinggi||"-"} cm<br>
-        📅 ${row.Tanggal||"-"}<br>
-        👷 ${row.Pengawas||"-"}<br>
-        🏢 ${row.Vendor||"-"}<br>
-        ${imgHTML}
-      `;
-      marker.bindPopup(html).openPopup();
-    });
+    marker.on("click", ()=> showPhotoPanel(row));
   }
 
   if(coords.length) map.fitBounds(coords);
-  document.getElementById("info").innerHTML=`
-    <b>Total Titik:</b> ${total}<br>
-    <b>Jenis Tanaman:</b> ${Object.keys(typeCount).length}
+}
+
+// =================== SIDE PANEL =================
+function showPhotoPanel(row){
+  const infoDiv = document.getElementById("info");
+  const photoEl = document.getElementById("photo");
+  const linkDiv = document.getElementById("linkArea");
+
+  const imgUrl = driveToDirect(row.LINK || row.Gambar || "");
+  const link = imgUrl ? `<a href="${imgUrl}" target="_blank">🔗 Lihat di Google Drive</a>` : "";
+
+  infoDiv.innerHTML = `
+    <div class="info-line"><b>📍 Lokasi:</b> ${row.Lokasi||"-"}</div>
+    <div class="info-line"><b>🌱 Tanaman:</b> ${row.Tanaman||"-"}</div>
+    <div class="info-line"><b>📏 Tinggi:</b> ${row.Tinggi||"-"} cm</div>
+    <div class="info-line"><b>📅 Tanggal:</b> ${row.Tanggal||"-"}</div>
+    <div class="info-line"><b>👷 Pengawas:</b> ${row.Pengawas||"-"}</div>
+    <div class="info-line"><b>🏢 Vendor:</b> ${row.Vendor||"-"}</div>
+    <div class="info-line"><b>🧭 Koordinat:</b> ${row.Y}, ${row.X}</div>
   `;
-  renderChart(typeCount);
+
+  if(imgUrl){
+    photoEl.src = imgUrl;
+    photoEl.style.display = "block";
+    linkDiv.innerHTML = link;
+  } else {
+    photoEl.style.display = "none";
+    linkDiv.innerHTML = "<i style='color:#777'>Tidak ada foto tersedia</i>";
+  }
+
+  // Fokuskan peta ke titik
+  if(row.Y && row.X){
+    map.flyTo([parseFloat(row.Y), parseFloat(row.X)], 14, { duration: 1.2 });
+  }
 }
 
-// ========================== CHART ===========================
-let chart;
-function renderChart(obj){
-  const ctx=document.getElementById("chart");
-  const labels=Object.keys(obj);
-  const values=Object.values(obj);
-  const colors=labels.map(()=>`hsl(${Math.random()*360},70%,60%)`);
-  if(chart) chart.destroy();
-  chart=new Chart(ctx,{
-    type:'pie',
-    data:{labels,datasets:[{data:values,backgroundColor:colors}]},
-    options:{plugins:{legend:{labels:{color:'#fff',font:{size:12}}}}}
-  });
-}
-
-// ========================== START ===========================
+// =================== START =================
 loadSpreadsheet();
 </script>
 </body>
