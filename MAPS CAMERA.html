@@ -3,18 +3,23 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Peta Monitoring Profesional - Dashboard Sidebar</title>
+<title>Peta Monitoring Profesional - Foto Langsung dari Drive</title>
 
+<!-- Leaflet -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 
+<!-- Leaflet Draw -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet-draw@1.0.4/dist/leaflet.draw.css"/>
 <script src="https://cdn.jsdelivr.net/npm/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
 
+<!-- Chart.js -->
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
+<!-- JSZip (KMZ) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
+<!-- Papaparse -->
 <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
 
 <style>
@@ -51,7 +56,7 @@ html,body {
 }
 .menu-btn:hover { background:#22c55e; color:#fff; }
 
-/* Panel konten kecil */
+/* Panel konten */
 .panel {
   position:absolute;
   top:10px; left:70px;
@@ -92,23 +97,31 @@ button:hover {background:#16a34a;}
 input[type=file]{display:none;}
 .layerItem {display:flex;align-items:center;gap:6px;margin:4px 0;}
 canvas {margin-top:8px;}
-.leaflet-popup-content img{width:200px;border-radius:8px;margin-top:8px;}
+.leaflet-popup-content img{
+  width:220px;
+  border-radius:8px;
+  margin-top:8px;
+  box-shadow:0 2px 8px rgba(0,0,0,0.4);
+}
 </style>
 </head>
 
 <body>
+<!-- Sidebar mini -->
 <div id="sidebar">
   <div class="menu-btn" title="Statistik" onclick="togglePanel('stats')">📊</div>
   <div class="menu-btn" title="Layer KMZ" onclick="togglePanel('layers')">📂</div>
   <div class="menu-btn" title="Gambar Polygon" onclick="togglePanel('draw')">✏️</div>
 </div>
 
+<!-- Panel Statistik -->
 <div id="panel-stats" class="panel">
   <h2>📊 Statistik Monitoring</h2>
   <div id="info">Memuat data...</div>
   <canvas id="chart" width="260" height="260"></canvas>
 </div>
 
+<!-- Panel Layer -->
 <div id="panel-layers" class="panel">
   <h2>📂 Layer KMZ</h2>
   <button onclick="document.getElementById('kmzInput').click()">Upload KMZ</button>
@@ -117,6 +130,7 @@ canvas {margin-top:8px;}
   <button onclick="clearLayers()">🗑️ Hapus Semua Layer</button>
 </div>
 
+<!-- Panel Gambar Polygon -->
 <div id="panel-draw" class="panel">
   <h2>✏️ Gambar Polygon</h2>
   <p style="font-size:13px;color:#aaa;">Gunakan alat di kanan atas peta untuk menggambar polygon, garis, atau marker.</p>
@@ -211,7 +225,7 @@ function clearLayers(){
 const drawnItems=new L.FeatureGroup();
 map.addLayer(drawnItems);
 const drawControl=new L.Control.Draw({
-  position:'topright', // ✅ Geser toolbar ke kanan atas
+  position:'topright',
   edit:{featureGroup:drawnItems},
   draw:{
     polygon:{allowIntersection:false,showArea:true},
@@ -220,25 +234,6 @@ const drawControl=new L.Control.Draw({
 });
 map.addControl(drawControl);
 map.on(L.Draw.Event.CREATED,e=>drawnItems.addLayer(e.layer));
-
-// ===== ✅ FUNGSI BARU UNTUK KONVERSI LINK GOOGLE DRIVE =====
-function getDirectGoogleDriveImage(url) {
-  if (!url || typeof url !== 'string') return '';
-  try {
-    // Cari 'id=' pada URL
-    const idMatch = url.match(/id=([a-zA-Z0-9_-]+)/);
-    if (idMatch && idMatch[1]) {
-      const fileId = idMatch[1];
-      // Ini adalah format link langsung yang benar untuk <img>
-      return `https://drive.google.com/uc?id=${fileId}`;
-    }
-    // Jika formatnya beda (mungkin sudah direct link), kembalikan URL aslinya
-    return url;
-  } catch (e) {
-    console.warn("Gagal konversi link GDrive:", e);
-    return url; // Failsafe
-  }
-}
 
 // ========================== LOAD SPREADSHEET DATA ===================
 async function loadSpreadsheet(){
@@ -263,11 +258,10 @@ async function loadSpreadsheet(){
       radius:4,color:"#22c55e",fillColor:"#22c55e",fillOpacity:0.9,weight:0.5
     }).addTo(map);
 
-    // ===== ✅ PERUBAHAN DI SINI =====
-    marker.on("click", ()=>{
-      // Konversi URL Google Drive agar tidak pecah
-      const img = getDirectGoogleDriveImage(row.LINK); 
-      
+    marker.on("click", ()=> {
+      const imgUrl = row.LINK ? row.LINK.trim() : "";
+      const imgHTML = imgUrl ? `<img src="${imgUrl}" loading="lazy">` : "<i style='color:#777'>Tidak ada foto</i>";
+
       const html = `
         <b>${row.Lokasi||"-"}</b><br>
         🌱 ${row.Tanaman||"-"}<br>
@@ -275,11 +269,10 @@ async function loadSpreadsheet(){
         📅 ${row.Tanggal||"-"}<br>
         👷 ${row.Pengawas||"-"}<br>
         🏢 ${row.Vendor||"-"}<br>
-        ${img ? `<img src="${img}" loading="lazy">` : ""}
+        ${imgHTML}
       `;
       marker.bindPopup(html).openPopup();
     });
-    // ===== AKHIR PERUBAHAN =====
   }
 
   if(coords.length) map.fitBounds(coords);
@@ -306,7 +299,7 @@ function renderChart(obj){
   });
 }
 
-// ========================== MULAI ===========================
+// ========================== START ===========================
 loadSpreadsheet();
 </script>
 </body>
