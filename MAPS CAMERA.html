@@ -1,203 +1,116 @@
 <!doctype html>
 <html lang="id">
 <head>
-<meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Peta Monitoring - Klik Marker Langsung Foto</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Peta Monitoring Profesional</title>
 
-<!-- Leaflet -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"/>
-<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+  <!-- Leaflet core -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 
-<!-- PapaParse -->
-<script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
+  <!-- Leaflet Draw -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet-draw@1.0.4/dist/leaflet.draw.css" />
+  <script src="https://cdn.jsdelivr.net/npm/leaflet-draw@1.0.4/dist/leaflet.draw.js"></script>
 
-<style>
-html,body {
-  margin:0;
-  height:100%;
-  font-family:"Inter",system-ui,sans-serif;
-  background:#0f0f0f;
-  color:#fff;
-  overflow:hidden;
-}
-#container {
-  display:flex;
-  width:100%;
-  height:100%;
-  transition:all 0.4s ease;
-}
-#map {
-  flex:1;
-  height:100%;
-  z-index:1;
-}
-#side-panel {
-  width:0;
-  overflow-y:auto;
-  background:#111;
-  border-left:2px solid #333;
-  opacity:0;
-  transition:all 0.4s ease;
-  position:relative;
-}
-#side-panel.show {
-  width:40%;
-  opacity:1;
-  padding:16px;
-}
-#side-panel h2 {
-  margin:0 0 10px 0;
-  color:#22c55e;
-}
-.info-line {
-  margin:6px 0;
-  font-size:14px;
-}
-#closeBtn {
-  position:absolute;
-  top:10px;
-  right:10px;
-  background:#333;
-  color:#fff;
-  border:none;
-  border-radius:6px;
-  padding:6px 10px;
-  cursor:pointer;
-  transition:all 0.3s;
-}
-#closeBtn:hover {background:#22c55e;color:#000;}
-#photo-frame {
-  width:100%;
-  height:auto;
-  max-height:400px;
-  margin-top:10px;
-  border:none;
-  border-radius:10px;
-  background:#000;
-  display:block;
-  object-fit:contain;
-}
-@media (max-width:900px){
-  #side-panel.show { width:100%; }
-  #photo-frame { max-height:250px; }
-}
-</style>
+  <!-- MarkerCluster (opsional saat >1000 titik) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
+  <script src="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+
+  <!-- Chart.js v4 -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  <!-- JSZip untuk KMZ -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+  <!-- PapaParse untuk CSV -->
+  <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
+
+  <style>
+    :root{
+      --bg:#111; --panel:#0a0a0a; --muted:#222; --text:#e5e7eb; --accent:#22c55e;
+    }
+    html, body { height:100%; margin:0; background:var(--bg); color:var(--text); font-family:"Inter",system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial; }
+    #map { width:100%; height:100vh; }
+
+    #sidebar { position:absolute; inset:0 auto 0 0; width:64px; display:flex; flex-direction:column; gap:12px; padding:12px 10px; background:#000; z-index:1000; box-shadow:2px 0 10px rgba(0,0,0,.5); }
+    .menu-btn { width:44px; height:44px; border-radius:10px; display:grid; place-items:center; background:#171717; color:var(--accent); cursor:pointer; transition:.2s; font-size:20px; }
+    .menu-btn:hover { background:var(--accent); color:#fff; transform: translateY(-1px); }
+
+    .panel { position:absolute; top:12px; left:76px; width:320px; max-height:88vh; overflow:auto; background:rgba(0,0,0,.9); border:1px solid var(--muted); border-radius:14px; padding:16px; box-shadow:0 10px 30px rgba(0,0,0,.4); backdrop-filter: blur(8px); opacity:0; pointer-events:none; transform: translateX(-12px); transition: opacity .25s, transform .25s; z-index:999; }
+    .panel.show { opacity:1; pointer-events:auto; transform: translateX(0); }
+
+    .panel h2 { margin:0 0 10px 0; font-size:16px; font-weight:700; border-bottom:1px solid var(--muted); padding-bottom:6px; }
+    .btn { width:100%; border:0; background:var(--accent); color:#fff; border-radius:10px; padding:10px 12px; font-weight:600; cursor:pointer; transition:.2s; }
+    .btn:hover { filter:brightness(0.95); }
+
+    input[type=file]{ display:none; }
+    .layer-item{ display:flex; align-items:center; gap:8px; padding:6px 0; border-bottom:1px dashed #1f2937; }
+    .leaflet-popup-content img { display:block; border-radius:10px; margin-top:8px; max-width:100%; height:auto; object-fit:contain; }
+  </style>
 </head>
 <body>
+  <div id="sidebar">
+    <div class="menu-btn" title="Statistik" onclick="togglePanel('stats')">📊</div>
+    <div class="menu-btn" title="Layer (KMZ/KML)" onclick="togglePanel('layers')">📂</div>
+    <div class="menu-btn" title="Gambar (Draw)" onclick="togglePanel('draw')">✏️</div>
+  </div>
 
-<div id="container">
+  <section id="panel-stats" class="panel">
+    <h2>📊 Statistik</h2>
+    <div id="stats-info">Memuat data...</div>
+    <canvas id="stats-chart" width="280" height="280"></canvas>
+  </section>
+
+  <section id="panel-layers" class="panel">
+    <h2>📂 Layer KMZ/KML</h2>
+    <button class="btn" onclick="document.getElementById('kmzInput').click()">Upload .kmz / .kml</button>
+    <input id="kmzInput" type="file" multiple accept=".kmz,.kml" />
+    <div id="layerList"></div>
+    <button class="btn" onclick="clearOverlayLayers()">🗑️ Hapus Semua Layer</button>
+  </section>
+
+  <section id="panel-draw" class="panel">
+    <h2>✏️ Gambar</h2>
+    <p style="font-size:13px;color:#aaa;">Gunakan toolbar di kanan atas peta untuk membuat polygon, garis, atau marker.</p>
+  </section>
+
   <div id="map"></div>
 
-  <!-- PANEL FOTO KANAN -->
-  <div id="side-panel">
-    <button id="closeBtn" onclick="closePanel()">✖ Tutup</button>
-    <h2>📷 Foto Titik</h2>
-    <div id="info">Klik titik pada peta.</div>
-    <img id="photo-frame" alt="Foto Titik"/>
-  </div>
-</div>
+  <script>
+  const SHEET_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTifVQt8HlXS1HiDgLSiC3vWgFrWO7ygGKG8_YCOQpVTRlBI_txOkcASymbFi7NUuF3poSx3i3b9vo0/pub?output=csv";
+  const CLUSTER_THRESHOLD = 1000;
 
-<script>
-// =================== KONFIGURASI ===================
-const SHEET_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTifVQt8HlXS1HiDgLSiC3vWgFrWO7ygGKG8_YCOQpVTRlBI_txOkcASymbFi7NUuF3poSx3i3b9vo0/pub?output=csv";
+  const map = L.map('map', { preferCanvas: true }).setView([-2.98,115.197],6);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution:'© OpenStreetMap' }).addTo(map);
 
-// =================== INISIALISASI PETA ===================
-const map = L.map('map', { preferCanvas:true }).setView([-2.98,115.197],6);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
-  maxZoom:19, attribution:'© OpenStreetMap'
-}).addTo(map);
+  const drawnItems=new L.FeatureGroup();
+  map.addLayer(drawnItems);
+  map.addControl(new L.Control.Draw({ position:'topright', edit:{ featureGroup:drawnItems }, draw:{ polygon:{allowIntersection:false,showArea:true}, rectangle:true,circle:false,marker:true,polyline:true } }));
+  map.on(L.Draw.Event.CREATED,e=>drawnItems.addLayer(e.layer));
 
-// =================== FUNGSI KONVERSI LINK DRIVE ===================
-function driveToEmbed(url){
-  if(!url) return "";
-  const match = url.match(/[-\w]{25,}/);
-  return match ? `https://drive.google.com/uc?export=view&id=${match[0]}` : "";
-}
+  function togglePanel(id){['stats','layers','draw'].forEach(p=>{const el=document.getElementById('panel-'+p);if(p===id)el.classList.toggle('show');else el.classList.remove('show');});}
 
-let activeMarker = null;
+  const overlayLayers={};
+  function refreshLayerList(){const div=document.getElementById('layerList');div.innerHTML='';Object.keys(overlayLayers).forEach(name=>{const c=document.createElement('div');c.className='layer-item';const chk=document.createElement('input');chk.type='checkbox';chk.checked=true;chk.onchange=()=>chk.checked?map.addLayer(overlayLayers[name]):map.removeLayer(overlayLayers[name]);const lbl=document.createElement('span');lbl.textContent=name;c.append(chk,lbl);div.append(c);});}
+  function clearOverlayLayers(){Object.values(overlayLayers).forEach(l=>map.removeLayer(l));for(const k in overlayLayers)delete overlayLayers[k];refreshLayerList();}
 
-// =================== LOAD DATA SPREADSHEET ===================
-async function loadSpreadsheet(){
-  const res = await fetch(SHEET_CSV);
-  const csv = await res.text();
-  const data = Papa.parse(csv,{header:true}).data;
-  const coords = [];
+  document.getElementById('kmzInput').addEventListener('change',async e=>{for(const f of e.target.files){if(f.name.endsWith('.kmz'))await loadKMZ(f);else if(f.name.endsWith('.kml'))addKMLLayer(await f.text(),f.name);}e.target.value='';});
+  async function loadKMZ(file){const name=file.name.replace(/\.[^/.]+$/,'');const zip=await JSZip.loadAsync(await file.arrayBuffer());const kmlFile=zip.file(/\.kml$/i)[0];const text=await kmlFile.async('text');addKMLLayer(text,name);}
+  function addKMLLayer(text,name){const xml=new DOMParser().parseFromString(text,'application/xml');const layer=L.layerGroup();xml.querySelectorAll('Placemark').forEach(p=>{const nameEl=p.querySelector('name');const title=nameEl?nameEl.textContent:'Fitur';const coords=p.querySelector('coordinates')?.textContent.trim();if(coords){const pts=coords.split(/\s+/).map(c=>c.split(',').slice(0,2).map(Number));if(pts.length===1)L.marker([pts[0][1],pts[0][0]]).addTo(layer).bindPopup(title);else if(pts.length>2)L.polygon(pts.map(([lon,lat])=>[lat,lon]),{color:'#3b82f6',weight:2,fillOpacity:.25}).addTo(layer).bindPopup(title);}});overlayLayers[name]=layer;layer.addTo(map);refreshLayerList();}
 
-  for(const row of data){
-    const lat = parseFloat(row.Y), lon = parseFloat(row.X);
-    if(isNaN(lat)||isNaN(lon)) continue;
-    coords.push([lat,lon]);
+  function normalizeDriveLink(url){if(!url)return'';const m=url.match(/[-\w]{25,}/);return m?`https://drive.google.com/uc?export=download&id=${m[0]}`:url;}
 
-    const marker = L.circleMarker([lat,lon],{
-      radius:6,
-      color:"#22c55e",
-      fillColor:"#22c55e",
-      fillOpacity:0.9,
-      weight:1
-    }).addTo(map);
+  async function loadSpreadsheet(){const res=await fetch(SHEET_CSV);const csv=await res.text();const data=Papa.parse(csv,{header:true}).data;const stats={};const rows=[];data.forEach(r=>{const lat=parseFloat(r.Y),lon=parseFloat(r.X);if(!isNaN(lat)&&!isNaN(lon)){rows.push(r);const t=(r.Tanaman||'Tidak Dikenal').trim();stats[t]=(stats[t]||0)+1;}});document.getElementById('stats-info').innerHTML=`<b>Total Titik:</b> ${rows.length}<br><b>Jenis Tanaman:</b> ${Object.keys(stats).length}`;renderChart(stats);renderPoints(rows);}
 
-    marker.on("click", ()=> showPhotoPanel(row, marker));
-  }
+  function buildPopupHTML(row){const lokasi=row.Lokasi||'-';const tanaman=row.Tanaman||'-';const tinggi=row.Tinggi?`${row.Tinggi} cm`:'-';const tgl=row.Tanggal||'-';const pengawas=row.Pengawas||'-';const vendor=row.Vendor||'-';const imgSrc=normalizeDriveLink(row.LINK||row.Gambar||'');const imgTag=imgSrc?`<img src="${imgSrc}" loading="lazy" alt="Foto ${tanaman}">`:'';return `<div style='min-width:220px'><b>${lokasi}</b><br>🌱 ${tanaman}<br>📏 ${tinggi}<br>📅 ${tgl}<br>👷 ${pengawas}<br>🏢 ${vendor}<br>${imgTag}</div>`;}
 
-  if(coords.length) map.fitBounds(coords);
-}
+  function renderPoints(rows){const coords=[];if(rows.length>CLUSTER_THRESHOLD){const cluster=L.markerClusterGroup();rows.forEach(r=>{const lat=parseFloat(r.Y),lon=parseFloat(r.X);if(isNaN(lat)||isNaN(lon))return;coords.push([lat,lon]);const marker=L.marker([lat,lon],{icon:L.divIcon({className:'dot-icon',html:'<span style="display:inline-block;width:8px;height:8px;background:#22c55e;border-radius:50%;border:1px solid #064e3b"></span>',iconSize:[8,8],iconAnchor:[4,4]})});marker.bindPopup(buildPopupHTML(r));cluster.addLayer(marker);});map.addLayer(cluster);}else{rows.forEach(r=>{const lat=parseFloat(r.Y),lon=parseFloat(r.X);if(isNaN(lat)||isNaN(lon))return;coords.push([lat,lon]);L.circleMarker([lat,lon],{radius:4,color:'#22c55e',fillColor:'#22c55e',fillOpacity:.9,weight:.5}).addTo(map).bindPopup(buildPopupHTML(r));});}if(coords.length)map.fitBounds(coords,{padding:[20,20]});}
 
-// =================== PANEL FOTO ===================
-function showPhotoPanel(row, marker){
-  const panel = document.getElementById("side-panel");
-  const infoDiv = document.getElementById("info");
-  const imgFrame = document.getElementById("photo-frame");
+  function renderChart(obj){const ctx=document.getElementById('stats-chart');const labels=Object.keys(obj);const values=Object.values(obj);const colors=labels.map(()=>`hsl(${Math.random()*360},70%,60%)`);new Chart(ctx,{type:'pie',data:{labels,datasets:[{data:values,backgroundColor:colors}]},options:{plugins:{legend:{labels:{color:'#fff'}}}}});}
 
-  // Reset marker sebelumnya
-  if(activeMarker){
-    activeMarker.setStyle({ color:"#22c55e", fillColor:"#22c55e" });
-  }
-  marker.setStyle({ color:"#facc15", fillColor:"#fde047" });
-  activeMarker = marker;
-
-  // Tampilkan panel kanan
-  panel.classList.add("show");
-
-  // Isi informasi titik
-  infoDiv.innerHTML = `
-    <div class="info-line"><b>📍 Lokasi:</b> ${row.Lokasi||"-"}</div>
-    <div class="info-line"><b>🌱 Tanaman:</b> ${row.Tanaman||"-"}</div>
-    <div class="info-line"><b>📏 Tinggi:</b> ${row.Tinggi||"-"} cm</div>
-    <div class="info-line"><b>📅 Tanggal:</b> ${row.Tanggal||"-"}</div>
-    <div class="info-line"><b>👷 Pengawas:</b> ${row.Pengawas||"-"}</div>
-    <div class="info-line"><b>🏢 Vendor:</b> ${row.Vendor||"-"}</div>
-  `;
-
-  // Ambil link Google Drive
-  const embedUrl = driveToEmbed(row.LINK || row.Gambar || "");
-
-  if(embedUrl){
-    imgFrame.src = embedUrl;
-    imgFrame.style.display = "block";
-  } else {
-    imgFrame.src = "";
-    imgFrame.style.display = "none";
-    infoDiv.innerHTML += `<div style="color:#888;margin-top:8px;">⚠️ Tidak ada foto tersedia</div>`;
-  }
-
-  // Fokus peta ke marker
-  map.flyTo([parseFloat(row.Y), parseFloat(row.X)], 14, { duration: 1.0 });
-}
-
-// =================== TUTUP PANEL ===================
-function closePanel(){
-  const panel = document.getElementById("side-panel");
-  panel.classList.remove("show");
-  const imgFrame = document.getElementById("photo-frame");
-  imgFrame.src = "";
-  if(activeMarker){
-    activeMarker.setStyle({ color:"#22c55e", fillColor:"#22c55e" });
-    activeMarker = null;
-  }
-}
-
-loadSpreadsheet();
-</script>
+  loadSpreadsheet();
+  </script>
 </body>
 </html>
