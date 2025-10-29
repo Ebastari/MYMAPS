@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Peta Monitoring - Split View Foto Proporsional</title>
+<title>Peta Monitoring - Split Foto Interaktif</title>
 
 <!-- Leaflet -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 
-<!-- PapaParse -->
+<!-- Papaparse -->
 <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
 
 <style>
@@ -19,35 +19,46 @@ html,body {
   font-family:"Inter",system-ui,sans-serif;
   background:#0f0f0f;
   color:#fff;
+  overflow:hidden;
+}
+#container {
   display:flex;
+  width:100%;
+  height:100%;
+  transition:all 0.4s ease;
 }
 #map {
-  width:65%;
-  height:100vh;
+  flex:1;
+  height:100%;
+  transition:width 0.4s ease;
+  z-index:1;
 }
 #side-panel {
-  width:35%;
-  height:100vh;
+  width:0;
+  overflow:hidden;
   background:#1a1a1a;
   border-left:2px solid #333;
   display:flex;
   flex-direction:column;
   justify-content:flex-start;
   align-items:center;
+  opacity:0;
+  transition:all 0.4s ease;
+}
+#side-panel.show {
+  width:35%;
+  opacity:1;
   padding:16px;
-  box-sizing:border-box;
-  overflow-y:auto;
-  transition:all 0.3s ease;
 }
 #side-panel h2 {
-  margin-top:0;
+  margin:0 0 10px 0;
   color:#22c55e;
 }
 #photo {
   width:100%;
-  max-width:280px;
-  max-height:280px;
-  object-fit:contain; /* ✅ menjaga rasio */
+  max-width:300px;
+  max-height:300px;
+  object-fit:contain;
   border-radius:10px;
   box-shadow:0 0 10px rgba(0,0,0,0.6);
   margin:10px auto;
@@ -63,22 +74,39 @@ a {
   text-decoration:none;
 }
 a:hover {text-decoration:underline;}
-@media (max-width:900px){
-  #map{width:100%;}
-  #side-panel{position:absolute;right:0;top:0;width:90%;background:rgba(0,0,0,0.95);}
+#closeBtn {
+  position:absolute;
+  top:10px;
+  right:10px;
+  background:#333;
+  color:#fff;
+  border:none;
+  border-radius:6px;
+  padding:6px 10px;
+  cursor:pointer;
+  transition:all 0.3s;
+}
+#closeBtn:hover {background:#22c55e;color:#000;}
+.highlight-marker {
+  fill-color:#fde047 !important;
+  color:#facc15 !important;
+  fill-opacity:1 !important;
 }
 </style>
 </head>
 <body>
 
-<div id="map"></div>
+<div id="container">
+  <div id="map"></div>
 
-<!-- PANEL FOTO -->
-<div id="side-panel">
-  <h2>📷 Detail Titik</h2>
-  <div id="info">Klik salah satu titik di peta untuk melihat detailnya.</div>
-  <img id="photo" src="" alt="" style="display:none;">
-  <div id="linkArea"></div>
+  <!-- PANEL FOTO -->
+  <div id="side-panel">
+    <button id="closeBtn" onclick="closePanel()">✖ Tutup</button>
+    <h2>📷 Detail Titik</h2>
+    <div id="info">Klik titik pada peta.</div>
+    <img id="photo" src="" alt="" style="display:none;">
+    <div id="linkArea"></div>
+  </div>
 </div>
 
 <script>
@@ -98,12 +126,14 @@ function driveToDirect(url){
   return match ? `https://drive.google.com/uc?export=view&id=${match[0]}` : url;
 }
 
+// =================== VARS ===================
+let activeMarker = null;
+
 // =================== LOAD SPREADSHEET =================
 async function loadSpreadsheet(){
   const res = await fetch(SHEET_CSV);
   const csv = await res.text();
   const data = Papa.parse(csv,{header:true}).data;
-
   const coords = [];
 
   for(const row of data){
@@ -112,21 +142,39 @@ async function loadSpreadsheet(){
     coords.push([lat,lon]);
 
     const marker = L.circleMarker([lat,lon],{
-      radius:4,color:"#22c55e",fillColor:"#22c55e",fillOpacity:0.9,weight:0.5
+      radius:5,
+      color:"#22c55e",
+      fillColor:"#22c55e",
+      fillOpacity:0.9,
+      weight:0.5
     }).addTo(map);
 
-    marker.on("click", ()=> showPhotoPanel(row));
+    marker.on("click", ()=> showPhotoPanel(row, marker));
   }
 
   if(coords.length) map.fitBounds(coords);
 }
 
-// =================== SIDE PANEL =================
-function showPhotoPanel(row){
+// =================== PANEL FUNGSI =================
+function showPhotoPanel(row, marker){
+  const panel = document.getElementById("side-panel");
   const infoDiv = document.getElementById("info");
   const photoEl = document.getElementById("photo");
   const linkDiv = document.getElementById("linkArea");
 
+  // Reset marker aktif sebelumnya
+  if(activeMarker){
+    activeMarker.setStyle({ color:"#22c55e", fillColor:"#22c55e" });
+  }
+
+  // Tandai marker aktif (highlight)
+  marker.setStyle({ color:"#facc15", fillColor:"#fde047" });
+  activeMarker = marker;
+
+  // Aktifkan panel split
+  panel.classList.add("show");
+
+  // Isi data
   const imgUrl = driveToDirect(row.LINK || row.Gambar || "");
   const link = imgUrl ? `<a href="${imgUrl}" target="_blank">🔗 Lihat di Google Drive</a>` : "";
 
@@ -149,13 +197,24 @@ function showPhotoPanel(row){
     linkDiv.innerHTML = "<i style='color:#777'>Tidak ada foto tersedia</i>";
   }
 
-  // Fokuskan peta ke titik
+  // Zoom ke titik
   if(row.Y && row.X){
     map.flyTo([parseFloat(row.Y), parseFloat(row.X)], 14, { duration: 1.2 });
   }
 }
 
-// =================== START =================
+// =================== TUTUP PANEL =================
+function closePanel(){
+  const panel = document.getElementById("side-panel");
+  panel.classList.remove("show");
+
+  // Hapus highlight marker
+  if(activeMarker){
+    activeMarker.setStyle({ color:"#22c55e", fillColor:"#22c55e" });
+    activeMarker = null;
+  }
+}
+
 loadSpreadsheet();
 </script>
 </body>
