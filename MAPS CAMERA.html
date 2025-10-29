@@ -3,40 +3,54 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Peta Monitoring Spreadsheet (CORS Fixed)</title>
+<title>Peta Monitoring Sederhana</title>
 
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
 
 <style>
-  html,body{margin:0;height:100%;}
+  html,body{margin:0;height:100%;font-family:sans-serif;}
   #map{width:100%;height:100%;}
-  .leaflet-popup-content img{width:200px;border-radius:6px;margin-top:4px;}
+  .leaflet-popup-content img{width:160px;border-radius:6px;margin-top:4px;}
   .toolbar{
-    position:absolute;top:10px;left:10px;z-index:1000;
+    position:absolute;top:10px;left:10px;z-index:999;
     background:rgba(0,0,0,0.6);color:#fff;padding:8px 12px;border-radius:8px;
+    font-size:13px;
   }
 </style>
 </head>
 <body>
 <div id="map"></div>
-<div class="toolbar">📊 Memuat data dari Google Spreadsheet...</div>
+<div class="toolbar">📍 Memuat data dari Spreadsheet...</div>
 
 <script>
-// URL publik spreadsheet kamu
+// URL Spreadsheet kamu (output=csv)
 const SHEET_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTifVQt8HlXS1HiDgLSiC3vWgFrWO7ygGKG8_YCOQpVTRlBI_txOkcASymbFi7NUuF3poSx3i3b9vo0/pub?output=csv";
 // Proxy untuk bypass CORS
 const PROXY = "https://api.allorigins.win/raw?url=" + encodeURIComponent(SHEET_CSV);
 
 const map = L.map('map').setView([-2.98,115.197],6);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(map);
-const markers = L.layerGroup().addTo(map);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+  maxZoom:19,
+  attribution:'© OpenStreetMap'
+}).addTo(map);
 
-// Konversi link Google Drive ke direct image
+// fungsi bantu: ubah link Google Drive ke direct image
 function driveImage(url){
   const m = (url||"").match(/\/d\/([^/]+)/);
   return m ? `https://drive.google.com/uc?export=view&id=${m[1]}` : url;
+}
+
+// fungsi menambah marker ringan
+function addCircle(lat, lon, html, color="#22c55e"){
+  L.circleMarker([lat,lon],{
+    radius:4,
+    color:color,
+    fillColor:color,
+    fillOpacity:0.8,
+    weight:0.5
+  }).bindPopup(html).addTo(map);
 }
 
 fetch(PROXY)
@@ -48,29 +62,28 @@ fetch(PROXY)
       const lat = parseFloat(row.Y);
       const lon = parseFloat(row.X);
       if(isNaN(lat)||isNaN(lon)) return;
-      const img = row.LINK ? `<img src="${driveImage(row.LINK)}">` : "";
+      const img = row.LINK ? `<img src="${driveImage(row.LINK)}" loading="lazy">` : "";
       const html = `
         <b>${row.Lokasi||"Tanpa Nama"}</b><br>
-        Pekerjaan: ${row.Pekerjaan||"-"}<br>
         Tanaman: ${row.Tanaman||"-"}<br>
         Tinggi: ${row.Tinggi||"-"} cm<br>
-        Tahun Tanam: ${row["Tahun Tanam"]||"-"}<br>
+        Tahun: ${row["Tahun Tanam"]||"-"}<br>
         Pengawas: ${row.Pengawas||"-"}<br>
-        Vendor: ${row.Vendor||"-"}<br>
         ${img}
       `;
-      L.marker([lat,lon]).addTo(markers).bindPopup(html);
+      addCircle(lat,lon,html);
       coords.push([lat,lon]);
     });
-    if(coords.length){
+
+    if(coords.length>0){
       map.fitBounds(coords);
-      document.querySelector(".toolbar").textContent = `✅ Berhasil memuat ${coords.length} titik dari Spreadsheet.`;
-    } else {
+      document.querySelector(".toolbar").textContent = `✅ ${coords.length} titik dimuat dari Spreadsheet.`;
+    }else{
       document.querySelector(".toolbar").textContent = "⚠️ Tidak ada titik valid di CSV.";
     }
   })
   .catch(err=>{
-    document.querySelector(".toolbar").textContent = "❌ Gagal memuat CSV: " + err;
+    document.querySelector(".toolbar").textContent = "❌ Gagal memuat data: " + err;
   });
 </script>
 </body>
