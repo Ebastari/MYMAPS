@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Peta Monitoring Profesional - Foto Langsung dari Drive</title>
+<title>Peta Monitoring Profesional - Foto Otomatis dari Drive</title>
 
 <!-- Leaflet -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"/>
@@ -19,7 +19,7 @@
 <!-- JSZip (KMZ) -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
-<!-- Papaparse -->
+<!-- PapaParse -->
 <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
 
 <style>
@@ -235,7 +235,15 @@ const drawControl=new L.Control.Draw({
 map.addControl(drawControl);
 map.on(L.Draw.Event.CREATED,e=>drawnItems.addLayer(e.layer));
 
-// ========================== LOAD SPREADSHEET DATA ===================
+// ========================== KONVERSI LINK DRIVE =====================
+function driveToDirect(url){
+  if(!url) return "";
+  // tangkap ID file dari berbagai format link Drive
+  const match = url.match(/[-\w]{25,}/);
+  return match ? `https://drive.google.com/uc?export=view&id=${match[0]}` : url;
+}
+
+// ========================== LOAD SPREADSHEET ========================
 async function loadSpreadsheet(){
   document.getElementById("info").textContent = "📡 Memuat data dari spreadsheet...";
   const res = await fetch(SHEET_CSV);
@@ -259,7 +267,7 @@ async function loadSpreadsheet(){
     }).addTo(map);
 
     marker.on("click", ()=> {
-      const imgUrl = row.LINK ? row.LINK.trim() : "";
+      const imgUrl = driveToDirect(row.LINK || row.Gambar || "");
       const imgHTML = imgUrl ? `<img src="${imgUrl}" loading="lazy">` : "<i style='color:#777'>Tidak ada foto</i>";
 
       const html = `
@@ -281,7 +289,6 @@ async function loadSpreadsheet(){
     <b>Jenis Tanaman:</b> ${Object.keys(typeCount).length}
   `;
   renderChart(typeCount);
-  console.log("Loaded:", total, "points from spreadsheet");
 }
 
 // ========================== CHART ===========================
