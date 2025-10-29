@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1"/>
-<title>Peta Monitoring - Split Foto Interaktif</title>
+<title>Peta Monitoring - Klik Marker Langsung Foto</title>
 
 <!-- Leaflet -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"/>
@@ -30,18 +30,13 @@ html,body {
 #map {
   flex:1;
   height:100%;
-  transition:width 0.4s ease;
   z-index:1;
 }
 #side-panel {
   width:0;
-  overflow:hidden;
+  overflow-y:auto;
   background:#111;
   border-left:2px solid #333;
-  display:flex;
-  flex-direction:column;
-  justify-content:flex-start;
-  align-items:center;
   opacity:0;
   transition:all 0.4s ease;
   position:relative;
@@ -55,26 +50,10 @@ html,body {
   margin:0 0 10px 0;
   color:#22c55e;
 }
-#photo {
-  width:100%;
-  max-width:320px;
-  max-height:260px;
-  object-fit:contain;
-  border-radius:10px;
-  box-shadow:0 0 10px rgba(0,0,0,0.6);
-  margin:10px auto;
-  display:block;
-  background:#0f0f0f;
-}
 .info-line {
-  margin:8px 0;
+  margin:6px 0;
   font-size:14px;
 }
-a {
-  color:#3b82f6;
-  text-decoration:none;
-}
-a:hover {text-decoration:underline;}
 #closeBtn {
   position:absolute;
   top:10px;
@@ -88,44 +67,21 @@ a:hover {text-decoration:underline;}
   transition:all 0.3s;
 }
 #closeBtn:hover {background:#22c55e;color:#000;}
-.highlight-marker {
-  fill-color:#fde047 !important;
-  color:#facc15 !important;
-  fill-opacity:1 !important;
-}
-#preview-container {
-  display:none;
-  position:absolute;
-  top:0; left:0;
-  width:100%; height:100%;
-  background:#000;
-  justify-content:center;
-  align-items:center;
-  flex-direction:column;
-  z-index:100;
-}
-#preview-container.show {
-  display:flex;
-}
-#preview-container img {
-  max-width:90%;
-  max-height:85%;
-  border-radius:12px;
-  object-fit:contain;
-  box-shadow:0 0 20px rgba(0,0,0,0.8);
-}
-#closePreview {
-  position:absolute;
-  top:10px; right:15px;
-  font-size:18px;
-  color:#fff;
-  background:#222;
+#photo-frame {
+  width:100%;
+  height:auto;
+  max-height:400px;
+  margin-top:10px;
   border:none;
-  border-radius:8px;
-  padding:6px 12px;
-  cursor:pointer;
+  border-radius:10px;
+  background:#000;
+  display:block;
+  object-fit:contain;
 }
-#closePreview:hover {background:#22c55e;color:#000;}
+@media (max-width:900px){
+  #side-panel.show { width:100%; }
+  #photo-frame { max-height:250px; }
+}
 </style>
 </head>
 <body>
@@ -133,43 +89,35 @@ a:hover {text-decoration:underline;}
 <div id="container">
   <div id="map"></div>
 
-  <!-- PANEL FOTO -->
+  <!-- PANEL FOTO KANAN -->
   <div id="side-panel">
     <button id="closeBtn" onclick="closePanel()">✖ Tutup</button>
-    <h2>📷 Detail Titik</h2>
+    <h2>📷 Foto Titik</h2>
     <div id="info">Klik titik pada peta.</div>
-    <img id="photo" src="" alt="" style="display:none;">
-    <div id="linkArea"></div>
-
-    <!-- Preview besar di area hitam -->
-    <div id="preview-container">
-      <button id="closePreview" onclick="closePreview()">✖</button>
-      <img id="previewImage" src="" alt="Preview">
-    </div>
+    <img id="photo-frame" alt="Foto Titik"/>
   </div>
 </div>
 
 <script>
-// =================== CONFIG ===================
+// =================== KONFIGURASI ===================
 const SHEET_CSV = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTifVQt8HlXS1HiDgLSiC3vWgFrWO7ygGKG8_YCOQpVTRlBI_txOkcASymbFi7NUuF3poSx3i3b9vo0/pub?output=csv";
 
-// =================== INIT MAP =================
+// =================== INISIALISASI PETA ===================
 const map = L.map('map', { preferCanvas:true }).setView([-2.98,115.197],6);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
   maxZoom:19, attribution:'© OpenStreetMap'
 }).addTo(map);
 
-// =================== UTIL: Convert Drive Link =================
-function driveToDirect(url){
+// =================== FUNGSI KONVERSI LINK DRIVE ===================
+function driveToEmbed(url){
   if(!url) return "";
   const match = url.match(/[-\w]{25,}/);
-  return match ? `https://drive.google.com/uc?export=view&id=${match[0]}` : url;
+  return match ? `https://drive.google.com/uc?export=view&id=${match[0]}` : "";
 }
 
-// =================== VARS ===================
 let activeMarker = null;
 
-// =================== LOAD SPREADSHEET =================
+// =================== LOAD DATA SPREADSHEET ===================
 async function loadSpreadsheet(){
   const res = await fetch(SHEET_CSV);
   const csv = await res.text();
@@ -182,11 +130,11 @@ async function loadSpreadsheet(){
     coords.push([lat,lon]);
 
     const marker = L.circleMarker([lat,lon],{
-      radius:5,
+      radius:6,
       color:"#22c55e",
       fillColor:"#22c55e",
       fillOpacity:0.9,
-      weight:0.5
+      weight:1
     }).addTo(map);
 
     marker.on("click", ()=> showPhotoPanel(row, marker));
@@ -195,25 +143,23 @@ async function loadSpreadsheet(){
   if(coords.length) map.fitBounds(coords);
 }
 
-// =================== PANEL FUNGSI =================
+// =================== PANEL FOTO ===================
 function showPhotoPanel(row, marker){
   const panel = document.getElementById("side-panel");
   const infoDiv = document.getElementById("info");
-  const photoEl = document.getElementById("photo");
-  const linkDiv = document.getElementById("linkArea");
+  const imgFrame = document.getElementById("photo-frame");
 
+  // Reset marker sebelumnya
   if(activeMarker){
     activeMarker.setStyle({ color:"#22c55e", fillColor:"#22c55e" });
   }
-
   marker.setStyle({ color:"#facc15", fillColor:"#fde047" });
   activeMarker = marker;
 
+  // Tampilkan panel kanan
   panel.classList.add("show");
 
-  const imgUrl = driveToDirect(row.LINK || row.Gambar || "");
-  const link = imgUrl ? `<a href="#" onclick="showPreview('${imgUrl}');return false;">👁️ Lihat foto di panel</a>` : "";
-
+  // Isi informasi titik
   infoDiv.innerHTML = `
     <div class="info-line"><b>📍 Lokasi:</b> ${row.Lokasi||"-"}</div>
     <div class="info-line"><b>🌱 Tanaman:</b> ${row.Tanaman||"-"}</div>
@@ -221,39 +167,30 @@ function showPhotoPanel(row, marker){
     <div class="info-line"><b>📅 Tanggal:</b> ${row.Tanggal||"-"}</div>
     <div class="info-line"><b>👷 Pengawas:</b> ${row.Pengawas||"-"}</div>
     <div class="info-line"><b>🏢 Vendor:</b> ${row.Vendor||"-"}</div>
-    <div class="info-line"><b>🧭 Koordinat:</b> ${row.Y}, ${row.X}</div>
   `;
 
-  if(imgUrl){
-    photoEl.src = imgUrl;
-    photoEl.style.display = "block";
-    linkDiv.innerHTML = link;
+  // Ambil link Google Drive
+  const embedUrl = driveToEmbed(row.LINK || row.Gambar || "");
+
+  if(embedUrl){
+    imgFrame.src = embedUrl;
+    imgFrame.style.display = "block";
   } else {
-    photoEl.style.display = "none";
-    linkDiv.innerHTML = "<i style='color:#777'>Tidak ada foto tersedia</i>";
+    imgFrame.src = "";
+    imgFrame.style.display = "none";
+    infoDiv.innerHTML += `<div style="color:#888;margin-top:8px;">⚠️ Tidak ada foto tersedia</div>`;
   }
 
-  if(row.Y && row.X){
-    map.flyTo([parseFloat(row.Y), parseFloat(row.X)], 14, { duration: 1.2 });
-  }
+  // Fokus peta ke marker
+  map.flyTo([parseFloat(row.Y), parseFloat(row.X)], 14, { duration: 1.0 });
 }
 
-// =================== PREVIEW BESAR =================
-function showPreview(imgUrl){
-  const preview = document.getElementById("preview-container");
-  const img = document.getElementById("previewImage");
-  img.src = imgUrl;
-  preview.classList.add("show");
-}
-
-function closePreview(){
-  document.getElementById("preview-container").classList.remove("show");
-}
-
-// =================== TUTUP PANEL =================
+// =================== TUTUP PANEL ===================
 function closePanel(){
   const panel = document.getElementById("side-panel");
   panel.classList.remove("show");
+  const imgFrame = document.getElementById("photo-frame");
+  imgFrame.src = "";
   if(activeMarker){
     activeMarker.setStyle({ color:"#22c55e", fillColor:"#22c55e" });
     activeMarker = null;
